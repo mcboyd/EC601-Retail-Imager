@@ -24,6 +24,14 @@ Use stereo cameras to measure object size and determine rough object shape, then
 
 ## Customer & User Stories
 
+CUSTOMER: Retail stores w/pick up/delivery services like Target, Walmart etc. 
+
+- I, the store manager, would like to improve the product sorting process to optimize the time of the human picked orders.
+- I, a retail worker, would like to help customers while an automated system handles the back-room product sorting.
+- I, the store manager, would like to be able to add new products easily for image recognition & sorting rather than training human workers about new products or bring in the vendor to image new products.
+- I, the store manager, want to save worker time by them not having to orient items to show the bar code in the picked box of items, esp. for heavy objects.
+- I, as supervisor, do not want to have to approve each image of the product that pops up. The autonomous system should detect and continuously match products after each product is removed from the pile.
+
 <a name="competitors"/>
 
 ## Competitors
