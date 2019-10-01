@@ -7,11 +7,12 @@ TA: Yicun (Ethan)
 
 * [Product Mission](#product-mission)
 * [Customer & User Stories](#user-stories)
+* [System Design](#system-design)
+* [Minimum Viable Product (MVP)](#mvp)
+* [Technology Selections](#technology-selections)
 * [Competitors](#competitors)
 * [Competitors' User Stories](#competitors-user-stories)
 * [Patent Analysis](#patent-analysis)
-* [System Design](#system-design)
-* [Minimum Viable Product (MVP)](#mvp)
 * [Flowchart](#flowchart)
 
 <a name="product-mission"/>
@@ -31,6 +32,45 @@ CUSTOMER: Retail stores w/pick up/delivery services like Target, Walmart etc.
 - I, the store manager, would like to be able to add new products easily for image recognition & sorting rather than training human workers about new products or bring in the vendor to image new products.
 - I, the store manager, want to save worker time by them not having to orient items to show the bar code in the picked box of items, esp. for heavy objects.
 - I, as supervisor, do not want to have to approve each image of the product that pops up. The autonomous system should detect and continuously match products after each product is removed from the pile.
+
+<a name="system-design"/>
+
+## System Design
+
+<img src="img/System_Design_Rough.jpg">
+
+<a name="mvp"/>
+
+## Minimum Viable Product (MVP)
+
+Capability of recognizing the top object in a box of 5 known stacked objects of hard-edged dimensions (no bottles) using our stereo camera system and reference database.
+
+<a name="technology-selections"/>
+
+## Technology Selections
+
+**Software:**
+
+Language: Python and C++
+
+Single Image feature extraction: Sift (or ORB)
+
+Database: VDMS
+
+Stereo image metadata extraction: TBD
+
+**Hardware:**
+
+Lighting: Matt's LED's
+
+Stereo Pi 3 B+ 1.4GHz
+
+Laptop for both GUI and extra memory/CPU for Database
+
+Camera Mount: metal arm
+
+Camera Case: Epic 3D print
+
 
 <a name="competitors"/>
 
@@ -91,17 +131,6 @@ https://patents.google.com/patent/US8379014B2/en
 https://patents.google.com/patent/US8260539
 
 6. US gov. Vehicle object recognition patent: "The platform provides an automated tool that can integrate multi-modal sensor data including two-dimensional image data, three-dimensional image data, and motion, location, or orientation data, and create a visual representation of the integrated sensor data, in a live operational environment.": https://patents.justia.com/patent/9911340
-
-
-<a name="system-design"/>
-
-## System Design
-
-<a name="mvp"/>
-
-## Minimum Viable Product (MVP)
-
-Capability of recognizing the top object in a box of 5 known stacked objects of hard-edged dimensions (no bottles) using our stereo camera system and reference database. 
 
 <a name="flowchart"/>
 
