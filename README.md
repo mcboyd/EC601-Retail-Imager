@@ -1,6 +1,6 @@
 # EC601 Retail Product Imager
 
-Team: Vivian Pazmany, Chenhui "Elvis" Zhu, Matthew Boyd
+Team: Vivian Pazmany, Chenhui "Elvis" Zhu, Matthew Boyd  
 TA: Yicun (Ethan)
 
 #### Contents
