@@ -10,6 +10,7 @@ TA: Yicun (Ethan)
 * [System Design](#system-design)
 * [Minimum Viable Product (MVP)](#mvp)
 * [Technology Selections](#technology-selections)
+* [Technology Justifications](#technology-justifications)
 * [Competitors](#competitors)
 * [Competitors' User Stories](#competitors-user-stories)
 * [Patent Analysis](#patent-analysis)
@@ -49,7 +50,7 @@ Capability of recognizing the top object in a box of 5 known stacked objects of 
 
 ## Technology Selections
 
-**Software:**
+**Software**
 
 Language: Python and C++
 
@@ -59,11 +60,11 @@ Database: VDMS
 
 Stereo image metadata extraction: TBD
 
-**Hardware:**
+**Hardware**
 
 Lighting: Matt's LED's
 
-Stereo Pi 3 B+ 1.4GHz
+Image Capture: Stereo Pi w/ Rasperberry Pi 3B+ 1.4GHz
 
 Laptop for both GUI and extra memory/CPU for Database
 
@@ -71,6 +72,58 @@ Camera Mount: metal arm
 
 Camera Case: Epic 3D print
 
+
+<a name="technology-justifications"/>
+
+## Technology Justifications
+
+#### Language: Python and C++
+- All libraries and tools selected support both languages
+- Our team has expertise in both
+- Python is good for development and testing, but slower
+- C++ is faster, but more cumbersome and slower to code
+
+#### Single Image feature extraction: Sift (or ORB)
+Comparison of SURF SIFT and ORB
+Number of feature points detected: SURF > ORB > SIFT
+Detection time: ORB>SURF>SIFT
+Scaling: SIFT>SURF>ORB
+Rotation: SIFT>ORB~SURF
+
+All in all, the SIFT is the best algorithm for our project. This is because that the most important part is attached to the performance when deal with the scaled or rotated images rather than the detection speed.
+
+#### Database: VDMS
+Pros:
+- Designed to store extracted image features for image matching
+- Stores additional descriptors of images (to limit search scope)
+- Does actual matching during query given extracted image features that you want to match
+- Runs on Linux or as Docker image
+- Has client libraries for Python and C++
+
+Alternatives:
+1. RDBMS (SQL Server, MySQL, etc.)
+ - Good for highly structured data and transactions
+ - I have LOTS of experience here
+ - Not great for storing and retrieving wide pieces of data (i.e., extracted image feature vectors)
+ - No real data type for extracted image feature vectors
+ - Won't be performing many inserts - mostly queries of wide pieces of data
+2. NoSQL Document Store (Mongo, CouchDB, etc.)
+ - Quick and easy to setup
+ - Easily accommodates any size data required
+ - No schema makes querying less than ideal
+ - Ideal for ingesting lots of data
+ - Won't be performing many inserts - mostly queries
+3. Column Store (MonetDB, Informix, etc.)
+ - Designed for data analytics over columns of data points spread across multiple rows
+ - Not well suited for our row-based query needs
+4. Graph DBs (Tigergraph, Neo4j, etc.)
+ - Great for mapping relationships among data points
+ - Not well suited to our attribute structure (shape, size, color)
+ - Not well suited to our data and query needs
+
+#### Image Capture: Stereo Pi w/ Rasperberry Pi 3B+
+- Captures stereo images and processes them with included cameras and daughter board
+- Already owned by Matt
 
 <a name="competitors"/>
 
