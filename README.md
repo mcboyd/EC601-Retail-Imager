@@ -54,11 +54,11 @@ Capability of recognizing the top object in a box of 5 known stacked objects of 
 
 Language: Python and C++
 
-Single Image feature extraction: Sift (or ORB)
+Single Image feature extraction: SIFT
 
 Database: VDMS
 
-Stereo image metadata extraction: TBD
+Stereo image metadata extraction (3D): TBD
 
 **Hardware**
 
@@ -77,6 +77,9 @@ Camera Case: Epic 3D print
 
 ## Technology Justifications
 
+#### Why not use ML?
+As a product intended for use in a retail environment, where 30K-100K individual product SKUs are easily possible, training an ML model to detect a product would require tremendous effort. Not only would we need multiple *tagged* images of each product, but the matching would be extremely slow. Typical "state of the art" ML today can only match a few dozen items with any given model. We are looking to match tens of thousands of products. ML seems a poor fit given our very controlled environment. 
+
 #### Language: Python and C++
 - All libraries and tools selected support both languages
 - Our team has expertise in both
@@ -84,11 +87,11 @@ Camera Case: Epic 3D print
 - C++ is faster, but more cumbersome and slower to code
 
 #### Single Image feature extraction: Sift (or ORB)
-Comparison of SURF SIFT and ORB
-Number of feature points detected: SURF > ORB > SIFT
-Detection time: ORB>SURF>SIFT
-Scaling: SIFT>SURF>ORB
-Rotation: SIFT>ORB~SURF
+Comparison of SURF SIFT and ORB:
+- Number of feature points detected: SURF > ORB > SIFT
+- Detection time: ORB > SURF > SIFT
+- Scaling: SIFT > SURF > ORB
+- Rotation: SIFT > ORB~SURF
 
 All in all, the SIFT is the best algorithm for our project. This is because that the most important part is attached to the performance when deal with the scaled or rotated images rather than the detection speed.
 
@@ -126,6 +129,9 @@ Alternatives:
 - Already owned by Matt
 
 <a name="competitors"/>
+
+#### Stereo image metadata extraction (3D)
+- TBD
 
 ## Competitors
 
