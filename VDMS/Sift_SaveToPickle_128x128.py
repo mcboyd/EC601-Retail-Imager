@@ -21,6 +21,7 @@ for x in files:
 	kps = sorted(kp, key=lambda x: -x.response)[:128]  # Grab only "top" 128 keypoints by response value(bigger is better)
 	print("keypoints done for {}", x)
 	kps,des = sift.compute(imgrgb,kps)
+	
 	#print(des)
 	if x == 'surface10.jpg':
 		des2 = des
@@ -33,7 +34,6 @@ for x in files:
 			des_t = des
 		else:
 			des_t = np.concatenate((des_t,des))
-
 
 object_des = des_t
 file_des = open('p128_des.obj', 'wb')
