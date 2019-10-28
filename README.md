@@ -3,6 +3,8 @@
 Team: Vivian Pazmany, Chenhui "Elvis" Zhu, Matthew Boyd  
 TA: Yicun (Ethan)
 
+*Updated: 10/27/2019*
+
 #### Contents
 
 * [Product Mission](#product-mission)
@@ -52,11 +54,19 @@ Capability of recognizing the top object in a box of 5 known stacked objects of 
 
 **Software**
 
-Language: Python and C++
+Language: Python, C++, Javascript (GUI)
 
 Single Image feature extraction: SIFT
 
-Database: VDMS
+~~Database: VDMS~~
+
+**Image Serach: FLANN over stored list of extracted features**
+
+**Feature Storage: Python "pickle" files**
+
+**Product Database: MySQL**
+
+**GUI Application: NodeJs**
 
 Stereo image metadata extraction (3D): TBD
 
@@ -66,9 +76,9 @@ Lighting: Matt's LED's
 
 Image Capture: Stereo Pi w/ Rasperberry Pi 3B+ 1.4GHz
 
-Laptop for both GUI and extra memory/CPU for Database
+Laptop: GUI, Image+Feature Storage & Search, Product Database 
 
-Camera Mount: metal arm
+Camera Mount: metal shelf
 
 Camera Case: Epic 3D print
 
@@ -91,7 +101,7 @@ Comparison of SURF SIFT and ORB:
 - Number of feature points detected: SURF > ORB > SIFT
 - Detection time: ORB > SURF > SIFT
 - Scaling: SIFT > SURF > ORB
-- Rotation: SIFT > ORB~SURF
+- Rotation: SIFT > ORB/SURF
 
 All in all, the SIFT is the best algorithm for our project. This is because that the most important part is attached to the performance when deal with the scaled or rotated images rather than the detection speed.
 
