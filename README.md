@@ -3,6 +3,8 @@
 Team: Vivian Pazmany, Chenhui "Elvis" Zhu, Matthew Boyd  
 TA: Yicun (Ethan)
 
+*Updated: 10/30/2019*
+
 #### Contents
 
 * [Product Mission](#product-mission)
@@ -20,7 +22,7 @@ TA: Yicun (Ethan)
 
 ## Product Mission
 
-Use stereo cameras to measure object size and determine rough object shape, then use image recognition to match visible graphics with database of known products to identify retail products in a "cluttered" box of products.
+Use ~~stereo cameras~~ depth camera to measure object size and determine rough object shape, then use image recognition to match visible graphics with database of known products to identify retail products in a "cluttered" box of products.
 
 <a name="user-stories"/>
 
@@ -52,26 +54,41 @@ Capability of recognizing the top object in a box of 5 known stacked objects of 
 
 **Software**
 
-Language: Python and C++
+Language: Python, C++, Javascript (GUI)
 
 Single Image feature extraction: SIFT
 
-Database: VDMS
+~~Database: VDMS~~  
+*No longer using VDMS because of issues getting results and persisting data in their provided Docker image. Installing the VDMS software directly would never complete. Suspect it is still too new and has too many bugs for us to use.*
 
-Stereo image metadata extraction (3D): TBD
+**Image Serach: FLANN over stored list of extracted features**  
+*Using this in place of VDMS for feature matching*
+
+**Feature Storage: Local binary files**  
+*Using this in place of VDMS for feature storage*
+
+**Product Database: MySQL**  
+*Using this in place of VDMS for storing product information*
+
+**GUI Application: TBD**
+
+Depth image metadata extraction (3D): **Intel RealSense SDK**
 
 **Hardware**
 
 Lighting: Matt's LED's
 
-Image Capture: Stereo Pi w/ Rasperberry Pi 3B+ 1.4GHz
+~~Image Capture: Stereo Pi w/ Rasperberry Pi 3B+ 1.4GHz~~  
+*No longer using - had trouble getting stereo images to convert to point clouds quickly and efficiently. Process was taking minutes per image - we desire sub-second performance.*
 
-Laptop for both GUI and extra memory/CPU for Database
+**Image Capture: Intel RealSense D415 camera module**
 
-Camera Mount: metal arm
+Laptop: GUI, Image Capture, Image+Feature Storage & Search, Product Database 
 
-Camera Case: Epic 3D print
+Camera Mount: metal shelf
 
+~~Camera Case: Epic 3D print~~  
+*No longer needed - for StereoPi*
 
 <a name="technology-justifications"/>
 
@@ -86,52 +103,42 @@ As a product intended for use in a retail environment, where 30K-100K individual
 - Python is good for development and testing, but slower
 - C++ is faster, but more cumbersome and slower to code
 
-#### Single Image feature extraction: Sift (or ORB)
-Comparison of SURF SIFT and ORB:
+#### Single Image feature extraction: Sift
+Comparison of SURF, SIFT, and ORB:
 - Number of feature points detected: SURF > ORB > SIFT
 - Detection time: ORB > SURF > SIFT
 - Scaling: SIFT > SURF > ORB
-- Rotation: SIFT > ORB~SURF
+- Rotation: SIFT > ORB/SURF
 
 All in all, the SIFT is the best algorithm for our project. This is because that the most important part is attached to the performance when deal with the scaled or rotated images rather than the detection speed.
 
-#### Database: VDMS
-Pros:
-- Designed to store extracted image features for image matching
-- Stores additional descriptors of images (to limit search scope)
-- Does actual matching during query given extracted image features that you want to match
-- Runs on Linux or as Docker image
-- Has client libraries for Python and C++
+~~Database: VDMS~~  
+*No longer using VDMS because of issues getting results and persisting data in their provided Docker image. Installing the VDMS software directly would never complete. Suspect it is still too new and has too many bugs for us to use.*
 
-Alternatives:
-1. RDBMS (SQL Server, MySQL, etc.)
- - Good for highly structured data and transactions
- - I have LOTS of experience here
- - Not great for storing and retrieving wide pieces of data (i.e., extracted image feature vectors)
- - No real data type for extracted image feature vectors
- - Won't be performing many inserts - mostly queries of wide pieces of data
-2. NoSQL Document Store (Mongo, CouchDB, etc.)
- - Quick and easy to setup
- - Easily accommodates any size data required
- - No schema makes querying less than ideal
- - Ideal for ingesting lots of data
- - Won't be performing many inserts - mostly queries
-3. Column Store (MonetDB, Informix, etc.)
- - Designed for data analytics over columns of data points spread across multiple rows
- - Not well suited for our row-based query needs
-4. Graph DBs (Tigergraph, Neo4j, etc.)
- - Great for mapping relationships among data points
- - Not well suited to our attribute structure (shape, size, color)
- - Not well suited to our data and query needs
+#### Feature Search: FLANN *(Replaces VDMS)*
+- Supports saving indexes to disk - allows us to continue to segment image database by object size. 
+- After indexes are built, searching is very quick (<100 ms).
 
-#### Image Capture: Stereo Pi w/ Rasperberry Pi 3B+
-- Captures stereo images and processes them with included cameras and daughter board
-- Already owned by Matt
+#### Product Information Database: MySQL *(Replaces VDMS)*
+- Free and easy to use.
+- Matt has expertise with RDBMSes 
+
+~~Image Capture: Stereo Pi w/ Rasperberry Pi 3B+~~  
+*No longer using - had trouble getting stereo images to convert to point clouds quickly and efficiently. Process was taking minutes per image - we desire sub-second performance.*
+
+#### Image Capture: Intel RealSense D415 camera module *(Replaces StereoPi)*
+- Generates depth images directly.
+- Relatively inexpensive.
+- Widely used, so lots of tutorials and community support. 
+
+#### Stereo image metadata extraction: Intel RealSense SDK
+- Works with Intel RealSense camera module.
+- Easy support for generating point clouds, measuring objects, etc.
+- Widely used, so lots of tutorials and community support. 
+
+#### GUI Application: TBD
 
 <a name="competitors"/>
-
-#### Stereo image metadata extraction (3D)
-- TBD
 
 ## Competitors
 
