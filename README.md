@@ -59,19 +59,15 @@ Language: Python, C++, Javascript (GUI)
 Single Image feature extraction: SIFT
 
 ~~Database: VDMS~~ 
-
 *No longer using VDMS because of issues getting results and persisting data in their provided Docker image. Installing the VDMS software directly would never complete. Suspect it is still too new and has too many bugs for us to use.*
 
 **Image Serach: FLANN over stored list of extracted features**
-
 *Using this in place of VDMS for feature matching*
 
 **Feature Storage: Local binary files**
-
 *Using this in place of VDMS for feature storage*
 
 **Product Database: MySQL**
-
 *Using this in place of VDMS for storing product information*
 
 **GUI Application: TBD**
@@ -83,7 +79,6 @@ Depth image metadata extraction (3D): **Intel RealSense SDK**
 Lighting: Matt's LED's
 
 ~~Image Capture: Stereo Pi w/ Rasperberry Pi 3B+ 1.4GHz~~
-
 *No longer using - had trouble getting stereo images to convert to point clouds quickly and efficiently. Process was taking minutes per image - we desire sub-second performance.*
 
 **Image Capture: Intel RealSense D415 camera module**
@@ -93,7 +88,6 @@ Laptop: GUI, Image Capture, Image+Feature Storage & Search, Product Database
 Camera Mount: metal shelf
 
 ~~Camera Case: Epic 3D print~~
-
 *No longer needed - for StereoPi*
 
 <a name="technology-justifications"/>
@@ -119,7 +113,6 @@ Comparison of SURF, SIFT, and ORB:
 All in all, the SIFT is the best algorithm for our project. This is because that the most important part is attached to the performance when deal with the scaled or rotated images rather than the detection speed.
 
 ~~Database: VDMS~~
-
 *No longer using VDMS because of issues getting results and persisting data in their provided Docker image. Installing the VDMS software directly would never complete. Suspect it is still too new and has too many bugs for us to use.*
 
 #### Feature Search: FLANN *Replaces VDMS*
@@ -131,7 +124,6 @@ All in all, the SIFT is the best algorithm for our project. This is because that
 - Matt has expertise with RDBMSes 
 
 ~~Image Capture: Stereo Pi w/ Rasperberry Pi 3B+~~
-
 *No longer using - had trouble getting stereo images to convert to point clouds quickly and efficiently. Process was taking minutes per image - we desire sub-second performance.*
 
 #### Image Capture: Intel RealSense D415 camera module *Replaces StereoPi*
