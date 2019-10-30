@@ -58,30 +58,37 @@ Language: Python, C++, Javascript (GUI)
 
 Single Image feature extraction: SIFT
 
-~~Database: VDMS~~
+~~Database: VDMS~~ 
+*No longer using VDMS because of issues getting results and persisting data in their provided Docker image. Installing the VDMS software directly would never complete. Suspect it is still too new and has too many bugs for us to use.*
 
 **Image Serach: FLANN over stored list of extracted features**
+*Using this in place of VDMS for feature matching*
 
-**Feature Storage: Python "pickle" files**
+**Feature Storage: Local binary files**
+*Using this in place of VDMS for feature storage*
 
 **Product Database: MySQL**
+*Using this in place of VDMS for storing product information*
 
-**GUI Application: NodeJs**
+**GUI Application: TBD**
 
-Stereo image metadata extraction (3D): TBD
+Depth image metadata extraction (3D): **Intel RealSense SDK**
 
 **Hardware**
 
 Lighting: Matt's LED's
 
-Image Capture: Stereo Pi w/ Rasperberry Pi 3B+ 1.4GHz
+~~Image Capture: Stereo Pi w/ Rasperberry Pi 3B+ 1.4GHz~~
+*No longer using - had trouble getting stereo images to convert to point clouds quickly and efficiently. Process was taking minutes per image - we desire sub-second performance.*
 
-Laptop: GUI, Image+Feature Storage & Search, Product Database 
+**Image Capture: Intel RealSense D415 camera module**
+
+Laptop: GUI, Image Capture, Image+Feature Storage & Search, Product Database 
 
 Camera Mount: metal shelf
 
-Camera Case: Epic 3D print
-
+~~Camera Case: Epic 3D print~~
+*No longer needed - for StereoPi*
 
 <a name="technology-justifications"/>
 
@@ -96,8 +103,8 @@ As a product intended for use in a retail environment, where 30K-100K individual
 - Python is good for development and testing, but slower
 - C++ is faster, but more cumbersome and slower to code
 
-#### Single Image feature extraction: Sift (or ORB)
-Comparison of SURF SIFT and ORB:
+#### Single Image feature extraction: Sift
+Comparison of SURF, SIFT, and ORB:
 - Number of feature points detected: SURF > ORB > SIFT
 - Detection time: ORB > SURF > SIFT
 - Scaling: SIFT > SURF > ORB
@@ -105,7 +112,7 @@ Comparison of SURF SIFT and ORB:
 
 All in all, the SIFT is the best algorithm for our project. This is because that the most important part is attached to the performance when deal with the scaled or rotated images rather than the detection speed.
 
-#### Database: VDMS
+~~#### Database: VDMS
 Pros:
 - Designed to store extracted image features for image matching
 - Stores additional descriptors of images (to limit search scope)
@@ -132,7 +139,7 @@ Alternatives:
 4. Graph DBs (Tigergraph, Neo4j, etc.)
  - Great for mapping relationships among data points
  - Not well suited to our attribute structure (shape, size, color)
- - Not well suited to our data and query needs
+ - Not well suited to our data and query needs~~
 
 #### Image Capture: Stereo Pi w/ Rasperberry Pi 3B+
 - Captures stereo images and processes them with included cameras and daughter board
