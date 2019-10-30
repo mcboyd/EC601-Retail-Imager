@@ -112,34 +112,34 @@ Comparison of SURF, SIFT, and ORB:
 
 All in all, the SIFT is the best algorithm for our project. This is because that the most important part is attached to the performance when deal with the scaled or rotated images rather than the detection speed.
 
-~~#### Database: VDMS
-Pros:
-- Designed to store extracted image features for image matching
-- Stores additional descriptors of images (to limit search scope)
-- Does actual matching during query given extracted image features that you want to match
-- Runs on Linux or as Docker image
-- Has client libraries for Python and C++
+~~#### Database: VDMS~~
+~~Pros:
+-Designed to store extracted image features for image matching
+-Stores additional descriptors of images (to limit search scope)
+-Does actual matching during query given extracted image features that you want to match
+-Runs on Linux or as Docker image
+-Has client libraries for Python and C++~~
 
-Alternatives:
-1. RDBMS (SQL Server, MySQL, etc.)
- - Good for highly structured data and transactions
- - I have LOTS of experience here
- - Not great for storing and retrieving wide pieces of data (i.e., extracted image feature vectors)
- - No real data type for extracted image feature vectors
- - Won't be performing many inserts - mostly queries of wide pieces of data
-2. NoSQL Document Store (Mongo, CouchDB, etc.)
- - Quick and easy to setup
- - Easily accommodates any size data required
- - No schema makes querying less than ideal
- - Ideal for ingesting lots of data
- - Won't be performing many inserts - mostly queries
-3. Column Store (MonetDB, Informix, etc.)
- - Designed for data analytics over columns of data points spread across multiple rows
- - Not well suited for our row-based query needs
-4. Graph DBs (Tigergraph, Neo4j, etc.)
- - Great for mapping relationships among data points
- - Not well suited to our attribute structure (shape, size, color)
- - Not well suited to our data and query needs~~
+~~Alternatives:
+1.RDBMS (SQL Server, MySQL, etc.)
+-Good for highly structured data and transactions
+-I have LOTS of experience here
+-Not great for storing and retrieving wide pieces of data (i.e., extracted image feature vectors)
+-No real data type for extracted image feature vectors
+-Won't be performing many inserts - mostly queries of wide pieces of data
+2.NoSQL Document Store (Mongo, CouchDB, etc.)
+-Quick and easy to setup
+-Easily accommodates any size data required
+-No schema makes querying less than ideal
+-Ideal for ingesting lots of data
+-Won't be performing many inserts - mostly queries
+3.Column Store (MonetDB, Informix, etc.)
+-Designed for data analytics over columns of data points spread across multiple rows
+-Not well suited for our row-based query needs
+4.Graph DBs (Tigergraph, Neo4j, etc.)
+-Great for mapping relationships among data points
+-Not well suited to our attribute structure (shape, size, color)
+-Not well suited to our data and query needs~~
 
 #### Image Capture: Stereo Pi w/ Rasperberry Pi 3B+
 - Captures stereo images and processes them with included cameras and daughter board
