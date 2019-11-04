@@ -40,7 +40,7 @@ CUSTOMER: Retail stores w/pick up/delivery services like Target, Walmart etc.
 
 ## System Design
 
-<img src="Img/System_Design_Rough.jpg">
+<img src="Img/SystemDesign_Updated110419.png">
 
 <a name="mvp"/>
 
