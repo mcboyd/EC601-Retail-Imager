@@ -2,6 +2,7 @@
 // Copyright(c) 2015-2017 Intel Corporation. All Rights Reserved.
 
 #include <librealsense2/rs.hpp> // Include RealSense Cross Platform API
+#include <librealsense2/rsutil.h>
 #include "../../../examples/example.hpp" // Include short list of convenience functions for rendering
 #include <pcl/point_types.h>
 #include <pcl/filters/passthrough.h>
@@ -52,12 +53,13 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 
 	/*std::string filename = "test_pcd.pcd";
 	pcl::io::savePCDFileASCII(filename, *cloud_filtered);*/
-
+	
 	//printf("123");
 	/*size_t num_points1 = cloud->size();
 	size_t num_points2 = cloud_filtered->size();
 	std::cout << "size of cloud: " << num_points1 << std::endl;
 	std::cout << "size of cloud_filtered: " << num_points2 << std::endl;
+
 	pcl::PointXYZ minPt, maxPt;
 	pcl::getMinMax3D(*cloud_filtered, minPt, maxPt);
 	std::cout << "Max x: " << maxPt.x << std::endl;
@@ -67,7 +69,7 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 	std::cout << "Min y: " << minPt.y << std::endl;
 	std::cout << "Min z: " << minPt.z << std::endl;
 	pcl::console::print_highlight("Time taken to std minmax: %f\n", watch.getTimeSeconds());*/
-		
+	
 	minZ.x = 0;
 	minZ.y = 0;
 	minZ.z = 1.0;
@@ -93,7 +95,7 @@ float3 colors[]{ { 0.8f, 0.1f, 0.3f },
 { 0.1f, 0.9f, 0.5f },
 };
 
-int main(int argc, char* argv[]) try
+int main(int argc, char * argv[]) try
 {
 	// Create a simple OpenGL window for rendering:
 	window app(1280, 720, "RealSense PCL Pointcloud Example");
@@ -120,7 +122,21 @@ int main(int argc, char* argv[]) try
 	// Generate the pointcloud and texture mappings
 	points = pc.calculate(depth);
 
+	// Get RGB frame
+	auto color = frames.get_color_frame();
+
+	// Tell pointcloud object to map to this color frame
+	pc.map_to(color);
+
+	const rs2_intrinsics i = pipe.get_active_profile().get_stream(RS2_STREAM_DEPTH).as<rs2::video_stream_profile>().get_intrinsics();
+
 	auto pcl_points = points_to_pcl(points);
+
+	float minZpixel[2];
+	float minZpoint[3] = { minZ.x, minZ.y, minZ.z };
+	rs2_project_point_to_pixel(minZpixel, &i, minZpoint);
+	std::cout << "Image x: " << minZpixel[0] << std::endl;
+	std::cout << "Image y: " << minZpixel[1] << std::endl;
 
 	pcl_ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PassThrough<pcl::PointXYZ> pass;
@@ -209,7 +225,7 @@ void draw_pointcloud(window& app, state& app_state, const std::vector<pcl_ptr>& 
 	glPushMatrix();
 	gluLookAt(0, 0, 0, 0, 0, 1, 0, -1, 0);
 
-	glTranslatef(0, 0, +0.5f + app_state.offset_y * 0.05f);
+	glTranslatef(0, 0, +0.5f + app_state.offset_y*0.05f);
 	glRotated(app_state.pitch, 1, 0, 0);
 	glRotated(app_state.yaw, 0, 1, 0);
 	glTranslatef(0, 0, -0.5f);
@@ -245,7 +261,7 @@ void draw_pointcloud(window& app, state& app_state, const std::vector<pcl_ptr>& 
 		glBegin(GL_POINTS);
 		glColor3f(0.8, 0.1, 0.3);  // Red color
 
-		// upload the point and texture coordinates only for points we have depth data for
+								   // upload the point and texture coordinates only for points we have depth data for
 		glVertex3f(minZ.x, minZ.y, minZ.z);
 
 		glEnd();
