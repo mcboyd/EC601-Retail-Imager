@@ -18,6 +18,7 @@ struct state {
 };
 
 using pcl_ptr = pcl::PointCloud<pcl::PointXYZ>::Ptr;
+pcl::PointXYZ minZ;
 
 // Helper functions
 void register_glfw_callbacks(window& app, state& app_state);
@@ -51,13 +52,12 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 
 	/*std::string filename = "test_pcd.pcd";
 	pcl::io::savePCDFileASCII(filename, *cloud_filtered);*/
-	
+
 	//printf("123");
 	/*size_t num_points1 = cloud->size();
 	size_t num_points2 = cloud_filtered->size();
 	std::cout << "size of cloud: " << num_points1 << std::endl;
 	std::cout << "size of cloud_filtered: " << num_points2 << std::endl;
-
 	pcl::PointXYZ minPt, maxPt;
 	pcl::getMinMax3D(*cloud_filtered, minPt, maxPt);
 	std::cout << "Max x: " << maxPt.x << std::endl;
@@ -67,8 +67,7 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 	std::cout << "Min y: " << minPt.y << std::endl;
 	std::cout << "Min z: " << minPt.z << std::endl;
 	pcl::console::print_highlight("Time taken to std minmax: %f\n", watch.getTimeSeconds());*/
-	
-	pcl::PointXYZ minZ;
+		
 	minZ.x = 0;
 	minZ.y = 0;
 	minZ.z = 1.0;
@@ -94,7 +93,7 @@ float3 colors[]{ { 0.8f, 0.1f, 0.3f },
 { 0.1f, 0.9f, 0.5f },
 };
 
-int main(int argc, char * argv[]) try
+int main(int argc, char* argv[]) try
 {
 	// Create a simple OpenGL window for rendering:
 	window app(1280, 720, "RealSense PCL Pointcloud Example");
@@ -210,7 +209,7 @@ void draw_pointcloud(window& app, state& app_state, const std::vector<pcl_ptr>& 
 	glPushMatrix();
 	gluLookAt(0, 0, 0, 0, 0, 1, 0, -1, 0);
 
-	glTranslatef(0, 0, +0.5f + app_state.offset_y*0.05f);
+	glTranslatef(0, 0, +0.5f + app_state.offset_y * 0.05f);
 	glRotated(app_state.pitch, 1, 0, 0);
 	glRotated(app_state.yaw, 0, 1, 0);
 	glTranslatef(0, 0, -0.5f);
@@ -223,7 +222,7 @@ void draw_pointcloud(window& app, state& app_state, const std::vector<pcl_ptr>& 
 	for (auto&& pc : points)
 	{
 		auto c = colors[(color++) % (sizeof(colors) / sizeof(float3))];
-
+		glPointSize(1);
 		glBegin(GL_POINTS);
 		glColor3f(c.x, c.y, c.z);
 
@@ -239,6 +238,18 @@ void draw_pointcloud(window& app, state& app_state, const std::vector<pcl_ptr>& 
 		}
 
 		glEnd();
+
+		// Added to display minZ
+		// *********BEGIN************
+		glPointSize(6);  // Make it bigger so we can see it
+		glBegin(GL_POINTS);
+		glColor3f(0.8, 0.1, 0.3);  // Red color
+
+		// upload the point and texture coordinates only for points we have depth data for
+		glVertex3f(minZ.x, minZ.y, minZ.z);
+
+		glEnd();
+		// **********END*************
 	}
 
 	// OpenGL cleanup
