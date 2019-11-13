@@ -10,6 +10,9 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/common/common.h>
 #include <pcl/common/time.h>
+// 3rd party header for writing png files
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <single-file/stb_image_write.h>
 
 // Struct for managing rotation of pointcloud view
 struct state {
@@ -109,21 +112,31 @@ int main(int argc, char * argv[]) try
 	// We want the points object to be persistent so we can display the last cloud when a frame drops
 	rs2::points points;
 
+	rs2::config cfg;
+	cfg.enable_stream(RS2_STREAM_COLOR, 1280, 720);
+	cfg.enable_stream(RS2_STREAM_DEPTH, 1280, 720);
+
 	// Declare RealSense pipeline, encapsulating the actual device and sensors
 	rs2::pipeline pipe;
 	// Start streaming with default recommended configuration
-	pipe.start();
+	pipe.start(cfg);
 
 	// Wait for the next set of frames from the camera
 	auto frames = pipe.wait_for_frames();
 
 	auto depth = frames.get_depth_frame();
 
+	std::cout << "Depth width: " << depth.get_width() << std::endl;
+	std::cout << "Depth height: " << depth.get_height() << std::endl;
+
 	// Generate the pointcloud and texture mappings
 	points = pc.calculate(depth);
 
 	// Get RGB frame
 	auto color = frames.get_color_frame();
+
+	std::cout << "Color width: " << color.get_width() << std::endl;
+	std::cout << "Color height: " << color.get_height() << std::endl;
 
 	// Tell pointcloud object to map to this color frame
 	pc.map_to(color);
@@ -137,6 +150,13 @@ int main(int argc, char * argv[]) try
 	rs2_project_point_to_pixel(minZpixel, &i, minZpoint);
 	std::cout << "Image x: " << minZpixel[0] << std::endl;
 	std::cout << "Image y: " << minZpixel[1] << std::endl;
+
+	// Write images to disk
+	std::stringstream png_file;
+	png_file << "c:/Bin/rs-save-to-disk-output-" << "test.png";
+	stbi_write_png("c:/Bin/test.png", color.get_width(), color.get_height(),
+		color.get_bytes_per_pixel(), color.get_data(), color.get_stride_in_bytes());
+	std::cout << "Saved " << png_file.str() << std::endl;
 
 	pcl_ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PassThrough<pcl::PointXYZ> pass;
