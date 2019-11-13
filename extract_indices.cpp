@@ -10,11 +10,21 @@
 #include <vector>
 #include <pcl/common/common.h>
 
-int
-main (int argc, char** argv)
+
+using pcl_ptr = pcl::PointCloud<pcl::PointXYZ>::Ptr;
+std::vector<pcl_ptr> planes;
+int plane_ind = -1;
+int ind = 0;
+
+int main (int argc, char** argv)
 {
   pcl::PointXYZ minZ;
-  
+  pcl::PointXYZ maxX = {0,0,0};
+  pcl::PointXYZ maxY = {0,0,0};
+  pcl::PointXYZ minx = {0,0,0};
+  pcl::PointXYZ miny = {0,0,0};
+
+
   pcl::PCLPointCloud2::Ptr cloud_blob (new pcl::PCLPointCloud2), cloud_filtered_blob (new pcl::PCLPointCloud2);
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZ>), cloud_p (new pcl::PointCloud<pcl::PointXYZ>), cloud_f (new pcl::PointCloud<pcl::PointXYZ>);
 
@@ -56,6 +66,7 @@ main (int argc, char** argv)
 
   int i = 0, nr_points = (int) cloud_filtered->points.size ();
   // While 30% of the original cloud is still there
+
   minZ.x = 0;
   minZ.y = 0;
   minZ.z = 1.0;
@@ -77,6 +88,7 @@ main (int argc, char** argv)
     extract.filter (*cloud_p);
     std::cerr << "PointCloud representing the planar component: " << cloud_p->width * cloud_p->height << " data points." << std::endl;
 
+    planes.push_back(cloud_p);
     //std::stringstream ss;
     //ss << "table_scene_lms400_plane_" << i << ".pcd";
     //writer.write<pcl::PointXYZ> (ss.str (), *cloud_p, false);
@@ -94,11 +106,50 @@ main (int argc, char** argv)
         minZ.x = cloud_p->points[i].x;
         minZ.y = cloud_p->points[i].y;
         minZ.z = cloud_p->points[i].z;
+        plane_ind = ind;
       }
     }
-    i++;
+    //i++;
+    ind += 1;
+
   }
-  std::cout << minZ.z << minZ.x << minZ.y;
+  std::cout << minZ.z << minZ.x << minZ.y << std::endl;
+  std::cout << "\n" << plane_ind << std::endl;
+
+
+
+  for (size_t i = 1; i < planes[plane_ind]->points.size(); ++i) {
+      if (planes[plane_ind]->points[i].x <= minx.x)
+      {
+      //std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
+        minx.x = cloud_p->points[i].x;
+        minx.y = cloud_p->points[i].y;
+        minx.z = cloud_p->points[i].z;
+      }
+      if (planes[plane_ind]->points[i].y <= minx.y)
+      {
+      //std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
+        miny.x = cloud_p->points[i].x;
+        miny.y = cloud_p->points[i].y;
+        miny.z = cloud_p->points[i].z;
+      }
+      if (planes[plane_ind]->points[i].x >= maxX.x)
+      {
+      //std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
+        maxX.x = cloud_p->points[i].x;
+        maxX.y = cloud_p->points[i].y;
+        maxX.z = cloud_p->points[i].z;
+      }
+      if (planes[plane_ind]->points[i].y >= maxY.y)
+      {
+      //std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
+        maxY.x = cloud_p->points[i].x;
+        maxY.y = cloud_p->points[i].y;
+        maxY.z = cloud_p->points[i].z;
+      }
+
+    }
+  std::cout << maxY.y << maxX.x << std::endl;
 
   return (0);
 }
