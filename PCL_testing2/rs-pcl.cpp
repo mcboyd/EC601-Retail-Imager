@@ -1,15 +1,32 @@
 // License: Apache 2.0. See LICENSE file in root directory.
 // Copyright(c) 2015-2017 Intel Corporation. All Rights Reserved.
+// Current functionality:
+// 1. Capture depth frame @ 1280x720
+// 2. Capture color frame @ 1280x720
+// 3. Align frames
+// 4. Generate point cloud
+// 5. Filter cloud to focus on box of products
+// 6a. Iterate filtered cloud generating array of plane segments
+// 6b. Find min Z value in all segments (only want this segment)
+// 6c. Find min and max X and Y values in segment with min Z
+// 7. Calculate box dimensions from min and max X, Y values
+// 8. Project (x,y,z) points of corners (min and max X, Y) to (u,x) pixels of color image
+// 9. Call Python & OpenCV: crop and rotate product of interest from color frame, save as PNG
 
 #include <librealsense2/rs.hpp> // Include RealSense Cross Platform API
 #include <librealsense2/rsutil.h>
 #include "../../../examples/example.hpp" // Include short list of convenience functions for rendering
+#include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/passthrough.h>
 #include <iostream>
+#include <vector>
 #include <pcl/io/pcd_io.h>
 #include <pcl/common/common.h>
 #include <pcl/common/time.h>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/ModelCoefficients.h>
 // 3rd party header for writing png files
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <single-file/stb_image_write.h>
@@ -22,7 +39,12 @@ struct state {
 };
 
 using pcl_ptr = pcl::PointCloud<pcl::PointXYZ>::Ptr;
+using pointxyz_vect = std::vector<pcl::PointXYZ>;
 pcl::PointXYZ minZ;
+pcl::PointXYZ maxX = { 0,0,0 };
+pcl::PointXYZ maxY = { 0,0,0 };
+pcl::PointXYZ minx = { 0,0,0 };
+pcl::PointXYZ miny = { 0,0,0 };
 
 // Helper functions
 void register_glfw_callbacks(window& app, state& app_state);
@@ -46,11 +68,13 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 		ptr++;
 	}
 	pcl::console::print_highlight("Time taken to convert: %f\n", watch.getTimeSeconds());
+
+	// 5. Filter cloud to focus on box of products
 	pcl_ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PassThrough<pcl::PointXYZ> pass;
 	pass.setInputCloud(cloud);
 	pass.setFilterFieldName("z");
-	pass.setFilterLimits(0.6, 0.72);
+	pass.setFilterLimits(0.6, 0.72);  // Set z filter values here; can also x,y filter...
 	pass.filter(*cloud_filtered);
 	pcl::console::print_highlight("Time taken to filter: %f\n", watch.getTimeSeconds());
 
@@ -61,18 +85,9 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 	/*size_t num_points1 = cloud->size();
 	size_t num_points2 = cloud_filtered->size();
 	std::cout << "size of cloud: " << num_points1 << std::endl;
-	std::cout << "size of cloud_filtered: " << num_points2 << std::endl;
+	std::cout << "size of cloud_filtered: " << num_points2 << std::endl;*/
 
-	pcl::PointXYZ minPt, maxPt;
-	pcl::getMinMax3D(*cloud_filtered, minPt, maxPt);
-	std::cout << "Max x: " << maxPt.x << std::endl;
-	std::cout << "Max y: " << maxPt.y << std::endl;
-	std::cout << "Max z: " << maxPt.z << std::endl;
-	std::cout << "Min x: " << minPt.x << std::endl;
-	std::cout << "Min y: " << minPt.y << std::endl;
-	std::cout << "Min z: " << minPt.z << std::endl;
-	pcl::console::print_highlight("Time taken to std minmax: %f\n", watch.getTimeSeconds());*/
-	
+	minZ = { 0,0,0 };
 	minZ.x = 0;
 	minZ.y = 0;
 	minZ.z = 1.0;
@@ -94,6 +109,139 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 	return cloud_filtered;
 }
 
+pointxyz_vect segment_minmax_xy(pcl_ptr& cloud_filtered)
+{
+	// 6a. Iterate filtered cloud generating array of plane segments
+	// 6b. Find min Z value in all segments (only want this segment)
+	// 6c. Find min and max X and Y values in segment with min Z
+	pointxyz_vect returnValues;
+	std::vector<pcl_ptr> planes;
+	int plane_ind = -1;
+	int ind = 0;
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloudFiltered(new pcl::PointCloud<pcl::PointXYZ>), cloud_p(new pcl::PointCloud<pcl::PointXYZ>), cloud_f(new pcl::PointCloud<pcl::PointXYZ>);
+	
+	// Create the filtering object: downsample the dataset using a leaf size of 1cm
+	pcl::VoxelGrid<pcl::PointXYZ> sor;
+	sor.setInputCloud(cloud_filtered);
+	sor.setLeafSize(0.01f, 0.01f, 0.01f);
+	sor.filter(*cloudFiltered);
+
+	// Setup for segmentation
+	pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients());
+	pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
+	// Create the segmentation object
+	pcl::SACSegmentation<pcl::PointXYZ> seg;
+	// Optional
+	seg.setOptimizeCoefficients(true);
+	// Mandatory
+	seg.setModelType(pcl::SACMODEL_PLANE);
+	seg.setMethodType(pcl::SAC_RANSAC);
+	seg.setMaxIterations(1000);
+	seg.setDistanceThreshold(0.01);
+
+	// Create the filtering object
+	pcl::ExtractIndices<pcl::PointXYZ> extract;
+
+	// Initi variable used in thesegmentation and later processing
+	int i = 0, nr_points = (int)cloudFiltered->points.size();
+	minZ.x = 0;
+	minZ.y = 0;
+	minZ.z = 1.0;
+	
+	// 6a.Iterate filtered cloud generating array of plane segments
+	// While 30% of the original cloud is still there, keep segmenting
+	while (cloudFiltered->points.size() > 0.3 * nr_points)
+	{
+		// Segment the largest planar component from the remaining cloud
+		seg.setInputCloud(cloudFiltered);
+		seg.segment(*inliers, *coefficients);
+		if (inliers->indices.size() == 0)
+		{
+			std::cerr << "Could not estimate a planar model for the given dataset." << std::endl;
+			break;
+		}
+
+		// Extract the inliers
+		extract.setInputCloud(cloudFiltered);
+		extract.setIndices(inliers);
+		extract.setNegative(false);
+		extract.filter(*cloud_p);
+		std::cerr << "PointCloud representing the planar component: " << cloud_p->width * cloud_p->height << " data points." << std::endl;
+
+		// Put the extracted segment (plane) in the planes vector
+		planes.push_back(cloud_p);
+
+		// Create the filtering object to remove the last segment from the main cloud
+		extract.setNegative(true);
+		extract.filter(*cloud_f);
+		cloudFiltered.swap(cloud_f);
+
+		// 6b. Find min Z value in all segments (only want this segment)
+		// Iterate through the points in this segment to see if it has the minimum z (and if so, save its vector index)
+		for (size_t i = 1; i < cloud_p->points.size(); ++i) {
+			if (cloud_p->points[i].z <= minZ.z)
+			{
+				//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
+				minZ.x = cloud_p->points[i].x;
+				minZ.y = cloud_p->points[i].y;
+				minZ.z = cloud_p->points[i].z;
+				plane_ind = ind;
+			}
+		}
+		//i++;
+		ind += 1;  // Increment the vector index variable and loop again
+	}
+
+	// 6c. Find min and max X and Y values in segment with min Z
+	// Now, get the min/max X/Y values from the plane with the minimum Z
+	for (size_t i = 1; i < planes[plane_ind]->points.size(); ++i) {
+		if (planes[plane_ind]->points[i].x <= minx.x)
+		{
+			//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
+			minx.x = cloud_p->points[i].x;
+			minx.y = cloud_p->points[i].y;
+			minx.z = cloud_p->points[i].z;
+		}
+		if (planes[plane_ind]->points[i].y <= minx.y)
+		{
+			//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
+			miny.x = cloud_p->points[i].x;
+			miny.y = cloud_p->points[i].y;
+			miny.z = cloud_p->points[i].z;
+		}
+		if (planes[plane_ind]->points[i].x >= maxX.x)
+		{
+			//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
+			maxX.x = cloud_p->points[i].x;
+			maxX.y = cloud_p->points[i].y;
+			maxX.z = cloud_p->points[i].z;
+		}
+		if (planes[plane_ind]->points[i].y >= maxY.y)
+		{
+			//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
+			maxY.x = cloud_p->points[i].x;
+			maxY.y = cloud_p->points[i].y;
+			maxY.z = cloud_p->points[i].z;
+		}
+
+	}
+	//std::cout << maxY.y << maxX.x << std::endl;
+
+	returnValues.push_back(minx);
+	returnValues.push_back(miny);
+	returnValues.push_back(maxX);
+	returnValues.push_back(maxY);
+
+	return returnValues;
+}
+
+std::vector<double> calcDims(pointxyz_vect corners)
+{
+	// 7. Calculate box dimensions from min and max X, Y values
+	std::vector<double> returnValue;
+	return returnValue;
+}
+
 float3 colors[]{ { 0.8f, 0.1f, 0.3f },
 { 0.1f, 0.9f, 0.5f },
 };
@@ -112,6 +260,7 @@ int main(int argc, char * argv[]) try
 	// We want the points object to be persistent so we can display the last cloud when a frame drops
 	rs2::points points;
 
+	// Configure the stream to capture both images @ 1280x720
 	rs2::config cfg;
 	cfg.enable_stream(RS2_STREAM_COLOR, 1280, 720);
 	cfg.enable_stream(RS2_STREAM_DEPTH, 1280, 720);
@@ -123,33 +272,58 @@ int main(int argc, char * argv[]) try
 
 	// Wait for the next set of frames from the camera
 	auto frames = pipe.wait_for_frames();
-
+	
+	// 1. Capture depth frame @ 1280x720
 	auto depth = frames.get_depth_frame();
-
 	std::cout << "Depth width: " << depth.get_width() << std::endl;
 	std::cout << "Depth height: " << depth.get_height() << std::endl;
 
 	// Generate the pointcloud and texture mappings
 	points = pc.calculate(depth);
 
-	// Get RGB frame
+	// 2. Capture color frame @ 1280x720
 	auto color = frames.get_color_frame();
-
 	std::cout << "Color width: " << color.get_width() << std::endl;
 	std::cout << "Color height: " << color.get_height() << std::endl;
 
 	// Tell pointcloud object to map to this color frame
+	// 3. Align frames
 	pc.map_to(color);
 
+	// Get camera intrinsics for later projection from (X,Y,Z) points to (U,V) pixels
 	const rs2_intrinsics i = pipe.get_active_profile().get_stream(RS2_STREAM_DEPTH).as<rs2::video_stream_profile>().get_intrinsics();
 
+	// 4. Generate point cloud
 	auto pcl_points = points_to_pcl(points);
 
-	float minZpixel[2];
-	float minZpoint[3] = { minZ.x, minZ.y, minZ.z };
-	rs2_project_point_to_pixel(minZpixel, &i, minZpoint);
-	std::cout << "Image x: " << minZpixel[0] << std::endl;
-	std::cout << "Image y: " << minZpixel[1] << std::endl;
+	// 6a. Iterate filtered cloud generating array of plane segments
+	// 6b. Find min Z value in all segments (only want this segment)
+	// 6c. Find min and max X and Y values in segment with min Z (return value)
+	pointxyz_vect minMaxXY = segment_minmax_xy(pcl_points);
+
+	// 7. Calculate box dimensions from min and max X, Y values
+	std::vector<double> dimensions = calcDims(minMaxXY);
+
+	// 8. Project (x,y,z) points of corners (min and max X, Y) to (u,x) pixels of color image
+	//float minZpixel[2];
+	//float minZpoint[3] = { minZ.x, minZ.y, minZ.z };
+	std::vector<std::array<float, 2>> minMaxPixels;  // Holds all 4 pixels representing corners of the product
+	for (auto&& coord : minMaxXY) {
+		float xyz[3] = { coord.x, coord.y, coord.z };
+		float pixel[2];
+		//rs2_project_point_to_pixel(minZpixel, &i, minZpoint);
+		rs2_project_point_to_pixel(pixel, &i, xyz);
+		std::array<float, 2> tempPixel;
+		tempPixel[0] = pixel[0];
+		tempPixel[1] = pixel[1];
+		minMaxPixels.push_back(tempPixel);
+		std::cout << "Cloud x: " << xyz[0] << std::endl;
+		std::cout << "Cloud y: " << xyz[1] << std::endl;
+		std::cout << "Cloud z: " << xyz[2] << std::endl;
+		std::cout << "Image x: " << pixel[0] << std::endl;
+		std::cout << "Image y: " << pixel[1] << std::endl;
+	}
+	
 
 	// Write images to disk
 	std::stringstream png_file;
