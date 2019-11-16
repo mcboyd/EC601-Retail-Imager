@@ -80,7 +80,7 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 
 	/*std::string filename = "test_pcd.pcd";
 	pcl::io::savePCDFileASCII(filename, *cloud_filtered);*/
-	
+
 	//printf("123");
 	/*size_t num_points1 = cloud->size();
 	size_t num_points2 = cloud_filtered->size();
@@ -109,17 +109,17 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 	return cloud_filtered;
 }
 
-pointxyz_vect segment_minmax_xy(pcl_ptr& cloud_filtered)
+int segment_minmax_xy(pcl_ptr& cloud_filtered)
 {
 	// 6a. Iterate filtered cloud generating array of plane segments
 	// 6b. Find min Z value in all segments (only want this segment)
 	// 6c. Find min and max X and Y values in segment with min Z
-	pointxyz_vect returnValues;
+	//pointxyz_vect returnValues;
 	std::vector<pcl_ptr> planes;
 	int plane_ind = -1;
 	int ind = 0;
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloudFiltered(new pcl::PointCloud<pcl::PointXYZ>), cloud_p(new pcl::PointCloud<pcl::PointXYZ>), cloud_f(new pcl::PointCloud<pcl::PointXYZ>);
-	
+
 	// Create the filtering object: downsample the dataset using a leaf size of 1cm
 	pcl::VoxelGrid<pcl::PointXYZ> sor;
 	sor.setInputCloud(cloud_filtered);
@@ -147,7 +147,7 @@ pointxyz_vect segment_minmax_xy(pcl_ptr& cloud_filtered)
 	minZ.x = 0;
 	minZ.y = 0;
 	minZ.z = 1.0;
-	
+
 	// 6a.Iterate filtered cloud generating array of plane segments
 	// While 30% of the original cloud is still there, keep segmenting
 	while (cloudFiltered->points.size() > 0.3 * nr_points)
@@ -227,18 +227,32 @@ pointxyz_vect segment_minmax_xy(pcl_ptr& cloud_filtered)
 	}
 	//std::cout << maxY.y << maxX.x << std::endl;
 
-	returnValues.push_back(minx);
+	/*returnValues.push_back(minx);
 	returnValues.push_back(miny);
 	returnValues.push_back(maxX);
 	returnValues.push_back(maxY);
 
-	return returnValues;
+	return returnValues;*/
+	return 0;
 }
 
-std::vector<double> calcDims(pointxyz_vect corners)
+std::vector<float> calcDims(pointxyz_vect corners)
 {
 	// 7. Calculate box dimensions from min and max X, Y values
-	std::vector<double> returnValue;
+	std::vector<float> returnValue;
+	float d = sqrt(pow(miny.x - minx.x, 2) +
+		pow(miny.y - minx.y, 2) +
+		pow(miny.z - minx.z, 2) * 1.0);
+	std::cout << std::fixed;
+	std::cout << std::setprecision(2);
+	std::cout << " Distance (minx->miny) is (in meters)" << d;
+
+	d = sqrt(pow(maxY.x - minx.x, 2) +
+		pow(maxY.y - minx.y, 2) +
+		pow(maxY.z - minx.z, 2) * 1.0);
+	std::cout << std::fixed;
+	std::cout << std::setprecision(2);
+	std::cout << " Distance (minx->maxY) is (in meters)" << d;
 	return returnValue;
 }
 
@@ -246,7 +260,7 @@ float3 colors[]{ { 0.8f, 0.1f, 0.3f },
 { 0.1f, 0.9f, 0.5f },
 };
 
-int main(int argc, char * argv[]) try
+int main(int argc, char* argv[]) try
 {
 	// Create a simple OpenGL window for rendering:
 	window app(1280, 720, "RealSense PCL Pointcloud Example");
@@ -272,7 +286,7 @@ int main(int argc, char * argv[]) try
 
 	// Wait for the next set of frames from the camera
 	auto frames = pipe.wait_for_frames();
-	
+
 	// 1. Capture depth frame @ 1280x720
 	auto depth = frames.get_depth_frame();
 	std::cout << "Depth width: " << depth.get_width() << std::endl;
@@ -323,7 +337,7 @@ int main(int argc, char * argv[]) try
 		std::cout << "Image x: " << pixel[0] << std::endl;
 		std::cout << "Image y: " << pixel[1] << std::endl;
 	}
-	
+
 
 	// Write images to disk
 	std::stringstream png_file;
@@ -419,7 +433,7 @@ void draw_pointcloud(window& app, state& app_state, const std::vector<pcl_ptr>& 
 	glPushMatrix();
 	gluLookAt(0, 0, 0, 0, 0, 1, 0, -1, 0);
 
-	glTranslatef(0, 0, +0.5f + app_state.offset_y*0.05f);
+	glTranslatef(0, 0, +0.5f + app_state.offset_y * 0.05f);
 	glRotated(app_state.pitch, 1, 0, 0);
 	glRotated(app_state.yaw, 0, 1, 0);
 	glTranslatef(0, 0, -0.5f);
