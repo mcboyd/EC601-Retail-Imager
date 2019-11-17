@@ -41,10 +41,10 @@ struct state {
 using pcl_ptr = pcl::PointCloud<pcl::PointXYZ>::Ptr;
 using pointxyz_vect = std::vector<pcl::PointXYZ>;
 pcl::PointXYZ minZ;
-pcl::PointXYZ maxX = { 0,0,0 };
-pcl::PointXYZ maxY = { 0,0,0 };
-pcl::PointXYZ minx = { 0,0,0 };
-pcl::PointXYZ miny = { 0,0,0 };
+pcl::PointXYZ maxX = { -100,0,0 };
+pcl::PointXYZ maxY = { 0,-100,0 };
+pcl::PointXYZ minx = { 100,0,0 };
+pcl::PointXYZ miny = { 0,100,0 };
 pointxyz_vect minmaxXY;
 
 // Helper functions
@@ -75,7 +75,7 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 	pcl::PassThrough<pcl::PointXYZ> pass;
 	pass.setInputCloud(cloud);
 	pass.setFilterFieldName("z");
-	pass.setFilterLimits(0.6, 0.72);  // Set z filter values here; can also x,y filter...
+	pass.setFilterLimits(0.3, 0.8);  // Set z filter values here; can also x,y filter...
 	pass.filter(*cloud_filtered);
 	pcl::console::print_highlight("Time taken to filter: %f\n", watch.getTimeSeconds());
 
@@ -193,36 +193,37 @@ int segment_minmax_xy(pcl_ptr& cloud_filtered)
 		ind += 1;  // Increment the vector index variable and loop again
 	}
 
+	std::cout << "plane-ind: " << plane_ind << std::endl;
 	// 6c. Find min and max X and Y values in segment with min Z
 	// Now, get the min/max X/Y values from the plane with the minimum Z
 	for (size_t i = 1; i < planes[plane_ind]->points.size(); ++i) {
-		if (planes[plane_ind]->points[i].x <= minx.x)
+		if (planes[plane_ind]->points[i].x < minx.x)
 		{
 			//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
-			minx.x = cloud_p->points[i].x;
-			minx.y = cloud_p->points[i].y;
-			minx.z = cloud_p->points[i].z;
+			minx.x = planes[plane_ind]->points[i].x;
+			minx.y = planes[plane_ind]->points[i].y;
+			minx.z = planes[plane_ind]->points[i].z;
 		}
-		if (planes[plane_ind]->points[i].y <= minx.y)
+		if (planes[plane_ind]->points[i].y < minx.y)
 		{
 			//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
-			miny.x = cloud_p->points[i].x;
-			miny.y = cloud_p->points[i].y;
-			miny.z = cloud_p->points[i].z;
+			miny.x = planes[plane_ind]->points[i].x;
+			miny.y = planes[plane_ind]->points[i].y;
+			miny.z = planes[plane_ind]->points[i].z;
 		}
-		if (planes[plane_ind]->points[i].x >= maxX.x)
+		if (planes[plane_ind]->points[i].x > maxX.x)
 		{
 			//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
-			maxX.x = cloud_p->points[i].x;
-			maxX.y = cloud_p->points[i].y;
-			maxX.z = cloud_p->points[i].z;
+			maxX.x = planes[plane_ind]->points[i].x;
+			maxX.y = planes[plane_ind]->points[i].y;
+			maxX.z = planes[plane_ind]->points[i].z;
 		}
-		if (planes[plane_ind]->points[i].y >= maxY.y)
+		if (planes[plane_ind]->points[i].y > maxY.y)
 		{
 			//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
-			maxY.x = cloud_p->points[i].x;
-			maxY.y = cloud_p->points[i].y;
-			maxY.z = cloud_p->points[i].z;
+			maxY.x = planes[plane_ind]->points[i].x;
+			maxY.y = planes[plane_ind]->points[i].y;
+			maxY.z = planes[plane_ind]->points[i].z;
 		}
 
 	}
@@ -232,7 +233,6 @@ int segment_minmax_xy(pcl_ptr& cloud_filtered)
 	returnValues.push_back(miny);
 	returnValues.push_back(maxX);
 	returnValues.push_back(maxY);
-
 	return returnValues;*/
 	return 0;
 }
@@ -246,7 +246,7 @@ std::vector<float> calcDims()
 		pow(miny.z - minx.z, 2) * 1.0);
 	std::cout << std::fixed;
 	std::cout << std::setprecision(2);
-	std::cout << " Distance (minx->miny) is (in meters)" << d;
+	std::cout << "Distance (minx->miny) is (in meters): " << d << std::endl;
 	returnValue.push_back(d);
 
 	d = sqrt(pow(maxY.x - minx.x, 2) +
@@ -254,7 +254,7 @@ std::vector<float> calcDims()
 		pow(maxY.z - minx.z, 2) * 1.0);
 	std::cout << std::fixed;
 	std::cout << std::setprecision(2);
-	std::cout << " Distance (minx->maxY) is (in meters)" << d;
+	std::cout << "Distance (minx->maxY) is (in meters): " << d << std::endl;
 	returnValue.push_back(d);
 	return returnValue;
 }
@@ -348,7 +348,7 @@ int main(int argc, char* argv[]) try
 
 	// Write images to disk
 	std::stringstream png_file;
-	png_file << "c:/Bin/rs-save-to-disk-output-" << "test.png";
+	//png_file << "c:/Bin/rs-save-to-disk-output-" << "test.png";
 	stbi_write_png("c:/Bin/test.png", color.get_width(), color.get_height(),
 		color.get_bytes_per_pixel(), color.get_data(), color.get_stride_in_bytes());
 	std::cout << "Saved " << png_file.str() << std::endl;
