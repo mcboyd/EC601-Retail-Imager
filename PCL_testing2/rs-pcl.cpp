@@ -45,6 +45,7 @@ pcl::PointXYZ maxX = { 0,0,0 };
 pcl::PointXYZ maxY = { 0,0,0 };
 pcl::PointXYZ minx = { 0,0,0 };
 pcl::PointXYZ miny = { 0,0,0 };
+pointxyz_vect minmaxXY;
 
 // Helper functions
 void register_glfw_callbacks(window& app, state& app_state);
@@ -236,7 +237,7 @@ int segment_minmax_xy(pcl_ptr& cloud_filtered)
 	return 0;
 }
 
-std::vector<float> calcDims(pointxyz_vect corners)
+std::vector<float> calcDims()
 {
 	// 7. Calculate box dimensions from min and max X, Y values
 	std::vector<float> returnValue;
@@ -246,6 +247,7 @@ std::vector<float> calcDims(pointxyz_vect corners)
 	std::cout << std::fixed;
 	std::cout << std::setprecision(2);
 	std::cout << " Distance (minx->miny) is (in meters)" << d;
+	returnValue.push_back(d);
 
 	d = sqrt(pow(maxY.x - minx.x, 2) +
 		pow(maxY.y - minx.y, 2) +
@@ -253,6 +255,7 @@ std::vector<float> calcDims(pointxyz_vect corners)
 	std::cout << std::fixed;
 	std::cout << std::setprecision(2);
 	std::cout << " Distance (minx->maxY) is (in meters)" << d;
+	returnValue.push_back(d);
 	return returnValue;
 }
 
@@ -313,16 +316,20 @@ int main(int argc, char* argv[]) try
 	// 6a. Iterate filtered cloud generating array of plane segments
 	// 6b. Find min Z value in all segments (only want this segment)
 	// 6c. Find min and max X and Y values in segment with min Z (return value)
-	pointxyz_vect minMaxXY = segment_minmax_xy(pcl_points);
+	int segment = segment_minmax_xy(pcl_points);
 
 	// 7. Calculate box dimensions from min and max X, Y values
-	std::vector<double> dimensions = calcDims(minMaxXY);
+	std::vector<float> dimensions = calcDims();
 
 	// 8. Project (x,y,z) points of corners (min and max X, Y) to (u,x) pixels of color image
 	//float minZpixel[2];
 	//float minZpoint[3] = { minZ.x, minZ.y, minZ.z };
+	minmaxXY.push_back(minx);
+	minmaxXY.push_back(miny);
+	minmaxXY.push_back(maxX);
+	minmaxXY.push_back(maxY);
 	std::vector<std::array<float, 2>> minMaxPixels;  // Holds all 4 pixels representing corners of the product
-	for (auto&& coord : minMaxXY) {
+	for (auto&& coord : minmaxXY) {
 		float xyz[3] = { coord.x, coord.y, coord.z };
 		float pixel[2];
 		//rs2_project_point_to_pixel(minZpixel, &i, minZpoint);
