@@ -71,11 +71,20 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 	pcl::console::print_highlight("Time taken to convert: %f\n", watch.getTimeSeconds());
 
 	// 5. Filter cloud to focus on box of products
+	pcl_ptr cloud_filtered1(new pcl::PointCloud<pcl::PointXYZ>);
+	pcl::PassThrough<pcl::PointXYZ> pass1;
+	pass1.setInputCloud(cloud);
+	pass1.setFilterFieldName("z");
+	pass1.setFilterLimits(0.7, 0.79);  // Set z filter values here; can also x,y filter...
+	pass1.filter(*cloud_filtered1);
+	pcl::console::print_highlight("Time taken to filter: %f\n", watch.getTimeSeconds());
+
+	// 5. Filter cloud to focus on box of products
 	pcl_ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PassThrough<pcl::PointXYZ> pass;
-	pass.setInputCloud(cloud);
-	pass.setFilterFieldName("z");
-	pass.setFilterLimits(0.3, 0.8);  // Set z filter values here; can also x,y filter...
+	pass.setInputCloud(cloud_filtered1);
+	pass.setFilterFieldName("x");
+	pass.setFilterLimits(-0.3, 0.3);  // Set z filter values here; can also x,y filter...
 	pass.filter(*cloud_filtered);
 	pcl::console::print_highlight("Time taken to filter: %f\n", watch.getTimeSeconds());
 
@@ -194,6 +203,10 @@ int segment_minmax_xy(pcl_ptr& cloud_filtered)
 	}
 
 	std::cout << "plane-ind: " << plane_ind << std::endl;
+
+	std::string filename = "C:/bin/test_pcd.pcd";
+	pcl::io::savePCDFileASCII(filename, *planes[plane_ind]);
+
 	// 6c. Find min and max X and Y values in segment with min Z
 	// Now, get the min/max X/Y values from the plane with the minimum Z
 	for (size_t i = 1; i < planes[plane_ind]->points.size(); ++i) {
@@ -288,7 +301,14 @@ int main(int argc, char* argv[]) try
 	pipe.start(cfg);
 
 	// Wait for the next set of frames from the camera
-	auto frames = pipe.wait_for_frames();
+	//auto frames = pipe.wait_for_frames();
+	// Camera warmup - dropping several first frames to let auto-exposure stabilize
+	rs2::frameset frames;
+	for (int i = 0; i < 30; i++)
+	{
+		//Wait for all configured streams to produce a frame
+		frames = pipe.wait_for_frames();
+	}
 
 	// 1. Capture depth frame @ 1280x720
 	auto depth = frames.get_depth_frame();
