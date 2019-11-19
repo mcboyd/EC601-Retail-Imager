@@ -75,7 +75,7 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 	pcl::PassThrough<pcl::PointXYZ> pass1;
 	pass1.setInputCloud(cloud);
 	pass1.setFilterFieldName("z");
-	pass1.setFilterLimits(0.7, 0.79);  // Set z filter values here; can also x,y filter...
+	pass1.setFilterLimits(0.8, 0.9);  // Set z filter values here; can also x,y filter...
 	pass1.filter(*cloud_filtered1);
 	pcl::console::print_highlight("Time taken to filter: %f\n", watch.getTimeSeconds());
 
@@ -207,6 +207,9 @@ int segment_minmax_xy(pcl_ptr& cloud_filtered)
 	std::string filename = "C:/bin/test_pcd.pcd";
 	pcl::io::savePCDFileASCII(filename, *planes[plane_ind]);
 
+	for (size_t i = 1; i < planes[plane_ind]->points.size(); ++i) {
+		std::cout << planes[plane_ind]->points[i] << std::endl;
+	}
 	// 6c. Find min and max X and Y values in segment with min Z
 	// Now, get the min/max X/Y values from the plane with the minimum Z
 	for (size_t i = 1; i < planes[plane_ind]->points.size(); ++i) {
@@ -217,7 +220,7 @@ int segment_minmax_xy(pcl_ptr& cloud_filtered)
 			minx.y = planes[plane_ind]->points[i].y;
 			minx.z = planes[plane_ind]->points[i].z;
 		}
-		if (planes[plane_ind]->points[i].y < minx.y)
+		if (planes[plane_ind]->points[i].y < miny.y)
 		{
 			//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
 			miny.x = planes[plane_ind]->points[i].x;
@@ -300,6 +303,21 @@ int main(int argc, char* argv[]) try
 	// Start streaming with default recommended configuration
 	pipe.start(cfg);
 
+	// Declare post-processing filters
+	rs2::decimation_filter dec_filter;  // Decimation - reduces depth frame density
+	rs2::threshold_filter thr_filter;   // Threshold  - removes values outside recommended range
+	rs2::spatial_filter spat_filter;    // Spatial    - edge-preserving spatial smoothing
+	rs2::temporal_filter temp_filter;   // Temporal   - reduces temporal noise
+
+	// Declare disparity transform from depth to disparity and vice versa
+	const std::string disparity_filter_name = "Disparity";
+	rs2::disparity_transform depth_to_disparity(true);
+	rs2::disparity_transform disparity_to_depth(false);
+
+	// Declaring two concurrent queues that will be used to enqueue and dequeue frames from different threads
+	rs2::frame_queue original_data;
+	rs2::frame_queue filtered_data;
+
 	// Wait for the next set of frames from the camera
 	//auto frames = pipe.wait_for_frames();
 	// Camera warmup - dropping several first frames to let auto-exposure stabilize
@@ -310,10 +328,29 @@ int main(int argc, char* argv[]) try
 		frames = pipe.wait_for_frames();
 	}
 
+	// Align frames for projection
+	rs2::align align(RS2_STREAM_COLOR);
+	frames = align.process(frames);
+	//rs2::video_frame color_frame = aligned_frames.first(RS2_STREAM_COLOR);
+	//rs2::depth_frame aligned_depth_frame = aligned_frames.get_depth_frame();
+
 	// 1. Capture depth frame @ 1280x720
 	auto depth = frames.get_depth_frame();
 	std::cout << "Depth width: " << depth.get_width() << std::endl;
 	std::cout << "Depth height: " << depth.get_height() << std::endl;
+
+	// For post-processing:
+	rs2::frame filtered = depth; // Does not copy the frame, only adds a reference
+	/* Apply filters.
+	The implemented flow of the filters pipeline is in the following order:
+	1. apply decimation filter
+	2. apply threshold filter
+	3. transform the scene into disparity domain
+	4. apply spatial filter
+	5. apply temporal filter
+	6. revert the results back (if step Disparity filter was applied
+	to depth domain (each post processing block is optional and can be applied independantly).
+	*/
 
 	// Generate the pointcloud and texture mappings
 	points = pc.calculate(depth);
