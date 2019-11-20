@@ -51,6 +51,18 @@ pointxyz_vect minmaxXY;
 void register_glfw_callbacks(window& app, state& app_state);
 void draw_pointcloud(window& app, state& app_state, const std::vector<pcl_ptr>& points);
 
+/**
+Class to encapsulate a filter alongside its options
+*/
+class filter_options
+{
+public:
+	filter_options(const std::string name, rs2::filter& filter);
+	filter_options(filter_options&& other);
+	std::string filter_name;                                   //Friendly name of the filter
+	rs2::filter& filter;                                       //The filter in use
+};
+
 pcl_ptr points_to_pcl(const rs2::points& points)
 {
 	pcl_ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
@@ -75,7 +87,7 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 	pcl::PassThrough<pcl::PointXYZ> pass1;
 	pass1.setInputCloud(cloud);
 	pass1.setFilterFieldName("z");
-	pass1.setFilterLimits(0.8, 0.9);  // Set z filter values here; can also x,y filter...
+	pass1.setFilterLimits(0.5, 0.67);  // Set z filter values here; can also x,y filter...
 	pass1.filter(*cloud_filtered1);
 	pcl::console::print_highlight("Time taken to filter: %f\n", watch.getTimeSeconds());
 
@@ -84,7 +96,7 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 	pcl::PassThrough<pcl::PointXYZ> pass;
 	pass.setInputCloud(cloud_filtered1);
 	pass.setFilterFieldName("x");
-	pass.setFilterLimits(-0.3, 0.3);  // Set z filter values here; can also x,y filter...
+	pass.setFilterLimits(-0.3, 0.2);  // Set z filter values here; can also x,y filter...
 	pass.filter(*cloud_filtered);
 	pcl::console::print_highlight("Time taken to filter: %f\n", watch.getTimeSeconds());
 
@@ -92,10 +104,10 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 	pcl::io::savePCDFileASCII(filename, *cloud_filtered);*/
 
 	//printf("123");
-	/*size_t num_points1 = cloud->size();
+	size_t num_points1 = cloud->size();
 	size_t num_points2 = cloud_filtered->size();
 	std::cout << "size of cloud: " << num_points1 << std::endl;
-	std::cout << "size of cloud_filtered: " << num_points2 << std::endl;*/
+	std::cout << "size of cloud_filtered: " << num_points2 << std::endl;
 
 	minZ = { 0,0,0 };
 	minZ.x = 0;
@@ -301,7 +313,16 @@ int main(int argc, char* argv[]) try
 	// Declare RealSense pipeline, encapsulating the actual device and sensors
 	rs2::pipeline pipe;
 	// Start streaming with default recommended configuration
-	pipe.start(cfg);
+	//pipe.start(cfg);
+	//The start function returns the pipeline profile which the pipeline used to start the device
+	rs2::pipeline_profile profile = pipe.start(cfg);
+
+	// Create align object
+	rs2::align align(RS2_STREAM_COLOR);
+
+	// Get camera intrinsics for later projection from (X,Y,Z) points to (U,V) pixels
+	//const rs2_intrinsics i = pipe.get_active_profile().get_stream(RS2_STREAM_DEPTH).as<rs2::video_stream_profile>().get_intrinsics();
+	const rs2_intrinsics intr = profile.get_stream(RS2_STREAM_DEPTH).as<rs2::video_stream_profile>().get_intrinsics();
 
 	// Declare post-processing filters
 	rs2::decimation_filter dec_filter;  // Decimation - reduces depth frame density
@@ -314,9 +335,19 @@ int main(int argc, char* argv[]) try
 	rs2::disparity_transform depth_to_disparity(true);
 	rs2::disparity_transform disparity_to_depth(false);
 
+	// Initialize a vector that holds filters and their options
+	std::vector<filter_options> filters;
+
+	// The following order of emplacement will dictate the orders in which filters are applied
+	filters.emplace_back("Decimate", dec_filter);
+	filters.emplace_back("Threshold", thr_filter);
+	filters.emplace_back(disparity_filter_name, depth_to_disparity);
+	filters.emplace_back("Spatial", spat_filter);
+	filters.emplace_back("Temporal", temp_filter);
+
 	// Declaring two concurrent queues that will be used to enqueue and dequeue frames from different threads
-	rs2::frame_queue original_data;
-	rs2::frame_queue filtered_data;
+	//rs2::frame_queue original_data;
+	//rs2::frame_queue filtered_data;
 
 	// Wait for the next set of frames from the camera
 	//auto frames = pipe.wait_for_frames();
@@ -329,7 +360,6 @@ int main(int argc, char* argv[]) try
 	}
 
 	// Align frames for projection
-	rs2::align align(RS2_STREAM_COLOR);
 	frames = align.process(frames);
 	//rs2::video_frame color_frame = aligned_frames.first(RS2_STREAM_COLOR);
 	//rs2::depth_frame aligned_depth_frame = aligned_frames.get_depth_frame();
@@ -351,6 +381,19 @@ int main(int argc, char* argv[]) try
 	6. revert the results back (if step Disparity filter was applied
 	to depth domain (each post processing block is optional and can be applied independantly).
 	*/
+	bool revert_disparity = false;
+	for (auto&& filter : filters)
+	{
+		filtered = filter.filter.process(filtered);
+		if (filter.filter_name == disparity_filter_name)
+		{
+			revert_disparity = true;
+		}
+	}
+	if (revert_disparity)
+	{
+		filtered = disparity_to_depth.process(filtered);
+	}
 
 	// Generate the pointcloud and texture mappings
 	points = pc.calculate(depth);
@@ -362,10 +405,10 @@ int main(int argc, char* argv[]) try
 
 	// Tell pointcloud object to map to this color frame
 	// 3. Align frames
-	pc.map_to(color);
+	//pc.map_to(color);
 
 	// Get camera intrinsics for later projection from (X,Y,Z) points to (U,V) pixels
-	const rs2_intrinsics i = pipe.get_active_profile().get_stream(RS2_STREAM_DEPTH).as<rs2::video_stream_profile>().get_intrinsics();
+	//const rs2_intrinsics i = pipe.get_active_profile().get_stream(RS2_STREAM_DEPTH).as<rs2::video_stream_profile>().get_intrinsics();
 
 	// 4. Generate point cloud
 	auto pcl_points = points_to_pcl(points);
@@ -390,7 +433,7 @@ int main(int argc, char* argv[]) try
 		float xyz[3] = { coord.x, coord.y, coord.z };
 		float pixel[2];
 		//rs2_project_point_to_pixel(minZpixel, &i, minZpoint);
-		rs2_project_point_to_pixel(pixel, &i, xyz);
+		rs2_project_point_to_pixel(pixel, &intr, xyz);
 		std::array<float, 2> tempPixel;
 		tempPixel[0] = pixel[0];
 		tempPixel[1] = pixel[1];
