@@ -21,12 +21,14 @@
 #include <pcl/filters/passthrough.h>
 #include <iostream>
 #include <vector>
+#include <fstream>
 #include <pcl/io/pcd_io.h>
 #include <pcl/common/common.h>
 #include <pcl/common/time.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/ModelCoefficients.h>
+#include <pcl/surface/convex_hull.h>
 // 3rd party header for writing png files
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <single-file/stb_image_write.h>
@@ -46,6 +48,7 @@ pcl::PointXYZ maxY = { 0,-100,0 };
 pcl::PointXYZ minx = { 100,0,0 };
 pcl::PointXYZ miny = { 0,100,0 };
 pointxyz_vect minmaxXY;
+std::ofstream outfile;// declaration of file pointer named outfile
 
 // Helper functions
 void register_glfw_callbacks(window& app, state& app_state);
@@ -54,14 +57,16 @@ void draw_pointcloud(window& app, state& app_state, const std::vector<pcl_ptr>& 
 /**
 Class to encapsulate a filter alongside its options
 */
-class filter_options
-{
-public:
-	filter_options(const std::string name, rs2::filter& filter);
-	filter_options(filter_options&& other);
-	std::string filter_name;                                   //Friendly name of the filter
-	rs2::filter& filter;                                       //The filter in use
-};
+//class filter_options
+//{
+//public:
+//	filter_options(const std::string name, rs2::filter& filter);
+//	filter_options(filter_options&& other);
+//	std::string filter_name;                                   //Friendly name of the filter
+//	rs2::filter& filter;                                       //The filter in use
+//	std::map<rs2_option, filter_slider_ui> supported_options;  //maps from an option supported by the filter, to the corresponding slider
+//	std::atomic_bool is_enabled;                                        //The filter in use
+//};
 
 pcl_ptr points_to_pcl(const rs2::points& points)
 {
@@ -81,6 +86,7 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 		ptr++;
 	}
 	pcl::console::print_highlight("Time taken to convert: %f\n", watch.getTimeSeconds());
+	outfile << "Time taken to convert: " << watch.getTimeSeconds()  << "\n";
 
 	// 5. Filter cloud to focus on box of products
 	pcl_ptr cloud_filtered1(new pcl::PointCloud<pcl::PointXYZ>);
@@ -89,7 +95,8 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 	pass1.setFilterFieldName("z");
 	pass1.setFilterLimits(0.5, 0.67);  // Set z filter values here; can also x,y filter...
 	pass1.filter(*cloud_filtered1);
-	pcl::console::print_highlight("Time taken to filter: %f\n", watch.getTimeSeconds());
+	pcl::console::print_highlight("Time taken to filter z: %f\n", watch.getTimeSeconds());
+	outfile << "Time taken to filter: " << watch.getTimeSeconds() << "\n";
 
 	// 5. Filter cloud to focus on box of products
 	pcl_ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
@@ -98,7 +105,8 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 	pass.setFilterFieldName("x");
 	pass.setFilterLimits(-0.3, 0.2);  // Set z filter values here; can also x,y filter...
 	pass.filter(*cloud_filtered);
-	pcl::console::print_highlight("Time taken to filter: %f\n", watch.getTimeSeconds());
+	pcl::console::print_highlight("Time taken to filter x: %f\n", watch.getTimeSeconds());
+	outfile << "Time taken to filter x: " << watch.getTimeSeconds() << "\n";
 
 	/*std::string filename = "test_pcd.pcd";
 	pcl::io::savePCDFileASCII(filename, *cloud_filtered);*/
@@ -108,6 +116,9 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 	size_t num_points2 = cloud_filtered->size();
 	std::cout << "size of cloud: " << num_points1 << std::endl;
 	std::cout << "size of cloud_filtered: " << num_points2 << std::endl;
+	outfile << "size of cloud: " << num_points1 << "\n";
+	outfile << "size of cloud_filtered: " << num_points2 << "\n";
+
 
 	minZ = { 0,0,0 };
 	minZ.x = 0;
@@ -126,6 +137,9 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 	std::cout << "Alt Min x: " << minZ.x << std::endl;
 	std::cout << "Alt Min y: " << minZ.y << std::endl;
 	std::cout << "Alt Min z: " << minZ.z << std::endl;
+	outfile << "Alt Min x: " << minZ.x << "\n";
+	outfile << "Alt Min y: " << minZ.y << "\n";
+	outfile << "Alt Min z: " << minZ.z << "\n";
 
 	//return cloud;
 	return cloud_filtered;
@@ -145,7 +159,7 @@ int segment_minmax_xy(pcl_ptr& cloud_filtered)
 	// Create the filtering object: downsample the dataset using a leaf size of 1cm
 	pcl::VoxelGrid<pcl::PointXYZ> sor;
 	sor.setInputCloud(cloud_filtered);
-	sor.setLeafSize(0.01f, 0.01f, 0.01f);
+	sor.setLeafSize(0.001f, 0.001f, 0.001f);
 	sor.filter(*cloudFiltered);
 
 	// Setup for segmentation
@@ -215,13 +229,23 @@ int segment_minmax_xy(pcl_ptr& cloud_filtered)
 	}
 
 	std::cout << "plane-ind: " << plane_ind << std::endl;
+	outfile << "plane-ind: " << plane_ind << "\n";
 
 	std::string filename = "C:/bin/test_pcd.pcd";
 	pcl::io::savePCDFileASCII(filename, *planes[plane_ind]);
 
-	for (size_t i = 1; i < planes[plane_ind]->points.size(); ++i) {
+	/*for (size_t i = 1; i < planes[plane_ind]->points.size(); ++i) {
 		std::cout << planes[plane_ind]->points[i] << std::endl;
-	}
+	}*/
+
+	// Create a Convex Hull representation of the min z plane segment
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_hull(new pcl::PointCloud<pcl::PointXYZ>);
+	pcl::ConvexHull<pcl::PointXYZ> chull;
+	chull.setInputCloud(planes[plane_ind]);
+	chull.reconstruct(*cloud_hull);
+	std::cout << "hull created (points): " << cloud_hull->points.size() << std::endl;
+	outfile << "hull created (points): " << cloud_hull->points.size() << "\n";
+
 	// 6c. Find min and max X and Y values in segment with min Z
 	// Now, get the min/max X/Y values from the plane with the minimum Z
 	for (size_t i = 1; i < planes[plane_ind]->points.size(); ++i) {
@@ -275,6 +299,7 @@ std::vector<float> calcDims()
 	std::cout << std::fixed;
 	std::cout << std::setprecision(2);
 	std::cout << "Distance (minx->miny) is (in meters): " << d << std::endl;
+	outfile << "Distance (minx->miny) is (in meters): " << d << "\n";
 	returnValue.push_back(d);
 
 	d = sqrt(pow(maxY.x - minx.x, 2) +
@@ -283,6 +308,7 @@ std::vector<float> calcDims()
 	std::cout << std::fixed;
 	std::cout << std::setprecision(2);
 	std::cout << "Distance (minx->maxY) is (in meters): " << d << std::endl;
+	outfile << "Distance (minx->maxY) is (in meters): " << d << "\n";
 	returnValue.push_back(d);
 	return returnValue;
 }
@@ -293,6 +319,8 @@ float3 colors[]{ { 0.8f, 0.1f, 0.3f },
 
 int main(int argc, char* argv[]) try
 {
+	outfile.open("c:/Bin/test_log.txt", std::ios::out); // opens file named "filename" for output
+
 	// Create a simple OpenGL window for rendering:
 	window app(1280, 720, "RealSense PCL Pointcloud Example");
 	// Construct an object to manage view state
@@ -336,14 +364,14 @@ int main(int argc, char* argv[]) try
 	rs2::disparity_transform disparity_to_depth(false);
 
 	// Initialize a vector that holds filters and their options
-	std::vector<filter_options> filters;
+	//std::vector<rs2::filter> filters;
 
 	// The following order of emplacement will dictate the orders in which filters are applied
-	filters.emplace_back("Decimate", dec_filter);
+	/*filters.emplace_back("Decimate", dec_filter);
 	filters.emplace_back("Threshold", thr_filter);
 	filters.emplace_back(disparity_filter_name, depth_to_disparity);
 	filters.emplace_back("Spatial", spat_filter);
-	filters.emplace_back("Temporal", temp_filter);
+	filters.emplace_back("Temporal", temp_filter);*/
 
 	// Declaring two concurrent queues that will be used to enqueue and dequeue frames from different threads
 	//rs2::frame_queue original_data;
@@ -368,6 +396,8 @@ int main(int argc, char* argv[]) try
 	auto depth = frames.get_depth_frame();
 	std::cout << "Depth width: " << depth.get_width() << std::endl;
 	std::cout << "Depth height: " << depth.get_height() << std::endl;
+	outfile << "Depth width: " << depth.get_width() << "\n";
+	outfile << "Depth height: " << depth.get_height() << "\n";
 
 	// For post-processing:
 	rs2::frame filtered = depth; // Does not copy the frame, only adds a reference
@@ -381,7 +411,14 @@ int main(int argc, char* argv[]) try
 	6. revert the results back (if step Disparity filter was applied
 	to depth domain (each post processing block is optional and can be applied independantly).
 	*/
-	bool revert_disparity = false;
+	filtered = dec_filter.process(filtered);
+	filtered = thr_filter.process(filtered);
+	filtered = depth_to_disparity.process(filtered);
+	filtered = spat_filter.process(filtered);
+	filtered = temp_filter.process(filtered);
+	filtered = disparity_to_depth.process(filtered);
+	
+	/*bool revert_disparity = false;
 	for (auto&& filter : filters)
 	{
 		filtered = filter.filter.process(filtered);
@@ -393,7 +430,7 @@ int main(int argc, char* argv[]) try
 	if (revert_disparity)
 	{
 		filtered = disparity_to_depth.process(filtered);
-	}
+	}*/
 
 	// Generate the pointcloud and texture mappings
 	points = pc.calculate(depth);
@@ -402,6 +439,8 @@ int main(int argc, char* argv[]) try
 	auto color = frames.get_color_frame();
 	std::cout << "Color width: " << color.get_width() << std::endl;
 	std::cout << "Color height: " << color.get_height() << std::endl;
+	outfile << "Color width: " << color.get_width() << "\n";
+	outfile << "Color height: " << color.get_height() << "\n";
 
 	// Tell pointcloud object to map to this color frame
 	// 3. Align frames
@@ -443,6 +482,11 @@ int main(int argc, char* argv[]) try
 		std::cout << "Cloud z: " << xyz[2] << std::endl;
 		std::cout << "Image x: " << pixel[0] << std::endl;
 		std::cout << "Image y: " << pixel[1] << std::endl;
+		outfile << "Cloud x: " << xyz[0] << "\n";
+		outfile << "Cloud y: " << xyz[1] << "\n";
+		outfile << "Cloud z: " << xyz[2] << "\n";
+		outfile << "Image x: " << pixel[0] << "\n";
+		outfile << "Image y: " << pixel[1] << "\n";
 	}
 
 
@@ -469,6 +513,7 @@ int main(int argc, char* argv[]) try
 		draw_pointcloud(app, app_state, layers);
 	}
 
+	outfile.close();// closes file; always do this when you are done using the file
 	return EXIT_SUCCESS;
 }
 catch (const rs2::error & e)
@@ -570,14 +615,20 @@ void draw_pointcloud(window& app, state& app_state, const std::vector<pcl_ptr>& 
 
 		glEnd();
 
-		// Added to display minZ
+		// Added to display minZ, min/max x/y
 		// *********BEGIN************
 		glPointSize(6);  // Make it bigger so we can see it
 		glBegin(GL_POINTS);
-		glColor3f(0.8, 0.1, 0.3);  // Red color
-
-								   // upload the point and texture coordinates only for points we have depth data for
+		glColor3f(0.8, 0.1, 0.3);  // Red color for minZ
+		// Display the point minZ
 		glVertex3f(minZ.x, minZ.y, minZ.z);
+
+		glColor3f(0.0, 0.0, 1.0);  // Blue color (for X/Y values)
+		// Display the points 
+		glVertex3f(minx.x, minx.y, minx.z);
+		glVertex3f(miny.x, miny.y, miny.z);
+		glVertex3f(maxX.x, maxX.y, maxX.z);
+		glVertex3f(maxY.x, maxY.y, maxY.z);
 
 		glEnd();
 		// **********END*************
