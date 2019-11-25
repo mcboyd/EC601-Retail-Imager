@@ -527,7 +527,7 @@ int main(int argc, char* argv[]) try
 
 	// Configure the stream to capture both images @ 1280x720
 	rs2::config cfg;
-	cfg.enable_stream(RS2_STREAM_COLOR, 1280, 720);
+	cfg.enable_stream(RS2_STREAM_COLOR, 1920, 1080);
 	cfg.enable_stream(RS2_STREAM_DEPTH, 1280, 720);
 
 	// Declare RealSense pipeline, encapsulating the actual device and sensors
@@ -542,7 +542,7 @@ int main(int argc, char* argv[]) try
 
 	// Get camera intrinsics for later projection from (X,Y,Z) points to (U,V) pixels
 	//const rs2_intrinsics i = pipe.get_active_profile().get_stream(RS2_STREAM_DEPTH).as<rs2::video_stream_profile>().get_intrinsics();
-	const rs2_intrinsics intr = profile.get_stream(RS2_STREAM_DEPTH).as<rs2::video_stream_profile>().get_intrinsics();
+	const rs2_intrinsics intr = profile.get_stream(RS2_STREAM_COLOR).as<rs2::video_stream_profile>().get_intrinsics();
 
 	// Declare post-processing filters
 	rs2::decimation_filter dec_filter;  // Decimation - reduces depth frame density
