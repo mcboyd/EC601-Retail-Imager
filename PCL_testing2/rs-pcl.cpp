@@ -29,6 +29,9 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl/ModelCoefficients.h>
 #include <pcl/surface/convex_hull.h>
+#include <pcl/common/centroid.h>
+#include <pcl/common/transforms.h>
+#include <pcl/visualization/pcl_visualizer.h>
 // 3rd party header for writing png files
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <single-file/stb_image_write.h>
@@ -40,6 +43,8 @@ struct state {
 	double yaw, pitch, last_x, last_y; bool ml; float offset_x, offset_y;
 };
 
+typedef pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> ColorHandlerXYZ;
+
 using pcl_ptr = pcl::PointCloud<pcl::PointXYZ>::Ptr;
 using pointxyz_vect = std::vector<pcl::PointXYZ>;
 pcl::PointXYZ minZ;
@@ -47,26 +52,12 @@ pcl::PointXYZ maxX = { -100,0,0 };
 pcl::PointXYZ maxY = { 0,-100,0 };
 pcl::PointXYZ minx = { 100,0,0 };
 pcl::PointXYZ miny = { 0,100,0 };
-pointxyz_vect minmaxXY;
+pointxyz_vect minmaxXY, quadA(2), quadB(2), quadC(2), quadD(2);
 std::ofstream outfile;// declaration of file pointer named outfile
 
 // Helper functions
 void register_glfw_callbacks(window& app, state& app_state);
 void draw_pointcloud(window& app, state& app_state, const std::vector<pcl_ptr>& points);
-
-/**
-Class to encapsulate a filter alongside its options
-*/
-//class filter_options
-//{
-//public:
-//	filter_options(const std::string name, rs2::filter& filter);
-//	filter_options(filter_options&& other);
-//	std::string filter_name;                                   //Friendly name of the filter
-//	rs2::filter& filter;                                       //The filter in use
-//	std::map<rs2_option, filter_slider_ui> supported_options;  //maps from an option supported by the filter, to the corresponding slider
-//	std::atomic_bool is_enabled;                                        //The filter in use
-//};
 
 pcl_ptr points_to_pcl(const rs2::points& points)
 {
@@ -86,7 +77,7 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 		ptr++;
 	}
 	pcl::console::print_highlight("Time taken to convert: %f\n", watch.getTimeSeconds());
-	outfile << "Time taken to convert: " << watch.getTimeSeconds()  << "\n";
+	outfile << "Time taken to convert: " << watch.getTimeSeconds() << "\n";
 
 	// 5. Filter cloud to focus on box of products
 	pcl_ptr cloud_filtered1(new pcl::PointCloud<pcl::PointXYZ>);
@@ -120,26 +111,26 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 	outfile << "size of cloud_filtered: " << num_points2 << "\n";
 
 
-	minZ = { 0,0,0 };
-	minZ.x = 0;
-	minZ.y = 0;
-	minZ.z = 1.0;
-	for (size_t i = 1; i < cloud_filtered->points.size(); ++i) {
-		if (cloud_filtered->points[i].z <= minZ.z)
-		{
-			//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
-			minZ.x = cloud_filtered->points[i].x;
-			minZ.y = cloud_filtered->points[i].y;
-			minZ.z = cloud_filtered->points[i].z;
-		}
-	}
-	pcl::console::print_highlight("Time taken to alt min: %f\n", watch.getTimeSeconds());
-	std::cout << "Alt Min x: " << minZ.x << std::endl;
-	std::cout << "Alt Min y: " << minZ.y << std::endl;
-	std::cout << "Alt Min z: " << minZ.z << std::endl;
-	outfile << "Alt Min x: " << minZ.x << "\n";
-	outfile << "Alt Min y: " << minZ.y << "\n";
-	outfile << "Alt Min z: " << minZ.z << "\n";
+	//minZ = { 0,0,0 };
+	//minZ.x = 0;
+	//minZ.y = 0;
+	//minZ.z = 1.0;
+	//for (size_t i = 1; i < cloud_filtered->points.size(); ++i) {
+	//	if (cloud_filtered->points[i].z <= minZ.z)
+	//	{
+	//		//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
+	//		minZ.x = cloud_filtered->points[i].x;
+	//		minZ.y = cloud_filtered->points[i].y;
+	//		minZ.z = cloud_filtered->points[i].z;
+	//	}
+	//}
+	//pcl::console::print_highlight("Time taken to alt min: %f\n", watch.getTimeSeconds());
+	//std::cout << "Alt Min x: " << minZ.x << std::endl;
+	//std::cout << "Alt Min y: " << minZ.y << std::endl;
+	//std::cout << "Alt Min z: " << minZ.z << std::endl;
+	//outfile << "Alt Min x: " << minZ.x << "\n";
+	//outfile << "Alt Min y: " << minZ.y << "\n";
+	//outfile << "Alt Min z: " << minZ.z << "\n";
 
 	//return cloud;
 	return cloud_filtered;
@@ -178,7 +169,7 @@ int segment_minmax_xy(pcl_ptr& cloud_filtered)
 	// Create the filtering object
 	pcl::ExtractIndices<pcl::PointXYZ> extract;
 
-	// Initi variable used in thesegmentation and later processing
+	// Init variable used in thesegmentation and later processing
 	int i = 0, nr_points = (int)cloudFiltered->points.size();
 	minZ.x = 0;
 	minZ.y = 0;
@@ -239,193 +230,248 @@ int segment_minmax_xy(pcl_ptr& cloud_filtered)
 	}*/
 
 	// Create a Convex Hull representation of the min z plane segment
-	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_hull(new pcl::PointCloud<pcl::PointXYZ>);
-	pcl::ConvexHull<pcl::PointXYZ> chull;
-	chull.setInputCloud(planes[plane_ind]);
-	chull.reconstruct(*cloud_hull);
-	std::cout << "hull created (points): " << cloud_hull->points.size() << std::endl;
-	outfile << "hull created (points): " << cloud_hull->points.size() << "\n";
+	// *******************************************************************************
+	// UNCOMMENT FROM HERE FOR HULL AND CORNERS
+	// *******************************************************************************
+	//pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_hull(new pcl::PointCloud<pcl::PointXYZ>);
+	//pcl::ConvexHull<pcl::PointXYZ> chull;
+	//chull.setInputCloud(planes[plane_ind]);
+	//chull.reconstruct(*cloud_hull);
+	//std::cout << "hull created (points): " << cloud_hull->points.size() << std::endl;
+	//outfile << "hull created (points): " << cloud_hull->points.size() << "\n";
+
+	////// 6c. Find min and max X and Y values in segment with min Z
+	////// Now, get the min/max X/Y values from the plane with the minimum Z
+	////for (size_t i = 1; i < planes[plane_ind]->points.size(); ++i) {
+	////	if (planes[plane_ind]->points[i].x < minx.x)
+	////	{
+	////		//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
+	////		minx.x = planes[plane_ind]->points[i].x;
+	////		minx.y = planes[plane_ind]->points[i].y;
+	////		minx.z = planes[plane_ind]->points[i].z;
+	////	}
+	////	if (planes[plane_ind]->points[i].y < miny.y)
+	////	{
+	////		//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
+	////		miny.x = planes[plane_ind]->points[i].x;
+	////		miny.y = planes[plane_ind]->points[i].y;
+	////		miny.z = planes[plane_ind]->points[i].z;
+	////	}
+	////	if (planes[plane_ind]->points[i].x > maxX.x)
+	////	{
+	////		//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
+	////		maxX.x = planes[plane_ind]->points[i].x;
+	////		maxX.y = planes[plane_ind]->points[i].y;
+	////		maxX.z = planes[plane_ind]->points[i].z;
+	////	}
+	////	if (planes[plane_ind]->points[i].y > maxY.y)
+	////	{
+	////		//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
+	////		maxY.x = planes[plane_ind]->points[i].x;
+	////		maxY.y = planes[plane_ind]->points[i].y;
+	////		maxY.z = planes[plane_ind]->points[i].z;
+	////	}
+
+	////}
+	////std::cout << maxY.y << maxX.x << std::endl;
+
+	//float dist;
+
+	//std::vector<float> vdist;
+	/////vector<vector<int> > vind{{0,0},{0,0}};
+	//std::vector<int> vi;
+	//std::vector<int> vj;
+	//int countav = 0;
+	//float distav = 0;
+	//float vmaxd = 0;
+
+	//float maxd1 = 0;
+	//int maxdi1;
+	//int maxdj1;
+
+	//float maxd2 = 0;
+	//int maxdi2;
+	//int maxdj2;
+
+	//for (size_t i = 1; i < cloud_hull->points.size(); ++i) {
+	//	for (size_t j = i + 1; j < cloud_hull->points.size(); ++j) {
+	//		distav += sqrt(pow((cloud_hull->points[i].x - cloud_hull->points[j].x), 2) + pow((cloud_hull->points[i].y - cloud_hull->points[j].y), 2) + pow((cloud_hull->points[i].z - cloud_hull->points[j].z), 2));
+
+	//		countav += 1;
+	//	}
+	//}
+	//float av = (distav / countav) / 2.0;
+	//std::cout << av << std::endl;
+
+	//for (size_t i = 1; i < cloud_hull->points.size(); ++i) {
+	//	for (size_t j = i + 1; j < cloud_hull->points.size(); ++j) {
+	//		dist = sqrt(pow((cloud_hull->points[i].x - cloud_hull->points[j].x), 2) + pow((cloud_hull->points[i].y - cloud_hull->points[j].y), 2) + pow((cloud_hull->points[i].z - cloud_hull->points[j].z), 2));
+	//		if (dist > av) {
+	//			vdist.push_back(dist);
+	//			vi.push_back(i);
+	//			vj.push_back(j);
+	//			//std::cout << "hi";
+	//		}
+	//	}
+	//}
+	//std::cout << "hello";
+	//for (int i = 0; i < vdist.size(); i++) {
+	//	if (vdist[i] > maxd1) {
+	//		maxd1 = vdist[i];
+	//		maxdi1 = vi[i];
+	//		maxdj1 = vj[i];
+	//	}
+	//}
+	//for (int i = 0; i < vdist.size(); i++) {
+	//	float xii1 = cloud_hull->points[maxdi1].x;
+	//	float xii2 = cloud_hull->points[vi[i]].x;
+	//	float yii1 = cloud_hull->points[maxdi1].y;
+	//	float yii2 = cloud_hull->points[vi[i]].y;
+	//	float zii1 = cloud_hull->points[maxdi1].z;
+	//	float zii2 = cloud_hull->points[vi[i]].z;
+
+	//	float xij1 = cloud_hull->points[maxdi1].x;
+	//	float xij2 = cloud_hull->points[vj[i]].x;
+	//	float yij1 = cloud_hull->points[maxdi1].y;
+	//	float yij2 = cloud_hull->points[vj[i]].y;
+	//	float zij1 = cloud_hull->points[maxdi1].z;
+	//	float zij2 = cloud_hull->points[vj[i]].z;
+
+	//	float xji1 = cloud_hull->points[maxdj1].x;
+	//	float xji2 = cloud_hull->points[vi[i]].x;
+	//	float yji1 = cloud_hull->points[maxdj1].y;
+	//	float yji2 = cloud_hull->points[vi[i]].y;
+	//	float zji1 = cloud_hull->points[maxdj1].z;
+	//	float zji2 = cloud_hull->points[vi[i]].z;
+
+	//	float xjj1 = cloud_hull->points[maxdj1].x;
+	//	float xjj2 = cloud_hull->points[vj[i]].x;
+	//	float yjj1 = cloud_hull->points[maxdj1].y;
+	//	float yjj2 = cloud_hull->points[vj[i]].y;
+	//	float zjj1 = cloud_hull->points[maxdj1].z;
+	//	float zjj2 = cloud_hull->points[vj[i]].z;
+
+	//	float distii = sqrt(pow(xii1 - xii2, 2) + pow(yii1 - yii2, 2) + pow(zii1 - zii2, 2)); // distance of current i to maxdi1
+	//	float distij = sqrt(pow(xij1 - xij2, 2) + pow(yij1 - yij2, 2) + pow(zij1 - zij2, 2)); // distance of current j to maxdi1
+	//	float distji = sqrt(pow(xji1 - xji2, 2) + pow(yji1 - yji2, 2) + pow(zji1 - zji2, 2)); // distance of current i to maxdj1
+	//	float distjj = sqrt(pow(xjj1 - xjj2, 2) + pow(yjj1 - yjj2, 2) + pow(zjj1 - zjj2, 2)); // distance of current j to maxdj1
+
+
+	//	if (vdist[i] > maxd2&& vi[i] != maxdi1 && vj[i] != maxdj1 && distii > av&& distij > av&& distji > av&& distjj > av) {
+	//		maxd2 = vdist[i];
+	//		maxdi2 = vi[i];
+	//		maxdj2 = vj[i];
+	//	}
+	//}
+	//// 4 points generated above, now put them in a separate point cloud by themselves
+	//pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_hull_corners(new pcl::PointCloud<pcl::PointXYZ>);
+	//cloud_hull_corners->resize(4);
+	//cloud_hull_corners->points[0].x = cloud_hull->points[maxdi1].x;
+	//cloud_hull_corners->points[0].y = cloud_hull->points[maxdi1].y;
+	//cloud_hull_corners->points[0].z = cloud_hull->points[maxdi1].z;
+
+	//cloud_hull_corners->points[1].x = cloud_hull->points[maxdj1].x;
+	//cloud_hull_corners->points[1].y = cloud_hull->points[maxdj1].y;
+	//cloud_hull_corners->points[1].z = cloud_hull->points[maxdj1].z;
+
+	//cloud_hull_corners->points[2].x = cloud_hull->points[maxdj2].x;
+	//cloud_hull_corners->points[2].y = cloud_hull->points[maxdj2].y;
+	//cloud_hull_corners->points[2].z = cloud_hull->points[maxdj2].z;
+
+	//cloud_hull_corners->points[3].x = cloud_hull->points[maxdi2].x;
+	//cloud_hull_corners->points[3].y = cloud_hull->points[maxdi2].y;
+	//cloud_hull_corners->points[3].z = cloud_hull->points[maxdj2].z;
+
+	//std::cout << "(" << cloud_hull->points[maxdi1].x << "," << cloud_hull->points[maxdi1].y << "," << cloud_hull->points[maxdi1].z << ")" << std::endl;
+	//std::cout << "(" << cloud_hull->points[maxdj1].x << "," << cloud_hull->points[maxdj1].y << "," << cloud_hull->points[maxdj1].z << ")" << std::endl;
+	//std::cout << "(" << cloud_hull->points[maxdi2].x << "," << cloud_hull->points[maxdi2].y << "," << cloud_hull->points[maxdi2].z << ")" << std::endl;
+	//std::cout << "(" << cloud_hull->points[maxdj2].x << "," << cloud_hull->points[maxdj2].y << "," << cloud_hull->points[maxdj2].z << ")" << std::endl;
+	//outfile << "(" << cloud_hull->points[maxdi1].x << "," << cloud_hull->points[maxdi1].y << "," << cloud_hull->points[maxdi1].z << ")" << "\n";
+	//outfile << "(" << cloud_hull->points[maxdj1].x << "," << cloud_hull->points[maxdj1].y << "," << cloud_hull->points[maxdj1].z << ")" << "\n";
+	//outfile << "(" << cloud_hull->points[maxdi2].x << "," << cloud_hull->points[maxdi2].y << "," << cloud_hull->points[maxdi2].z << ")" << "\n";
+	//outfile << "(" << cloud_hull->points[maxdj2].x << "," << cloud_hull->points[maxdj2].y << "," << cloud_hull->points[maxdj2].z << ")" << "\n";
 
 	//// 6c. Find min and max X and Y values in segment with min Z
 	//// Now, get the min/max X/Y values from the plane with the minimum Z
-	//for (size_t i = 1; i < planes[plane_ind]->points.size(); ++i) {
-	//	if (planes[plane_ind]->points[i].x < minx.x)
+	//for (size_t i = 0; i < cloud_hull_corners->points.size(); ++i) {
+	//	if (cloud_hull_corners->points[i].x < minx.x)
 	//	{
 	//		//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
-	//		minx.x = planes[plane_ind]->points[i].x;
-	//		minx.y = planes[plane_ind]->points[i].y;
-	//		minx.z = planes[plane_ind]->points[i].z;
+	//		minx.x = cloud_hull_corners->points[i].x;
+	//		minx.y = cloud_hull_corners->points[i].y;
+	//		minx.z = cloud_hull_corners->points[i].z;
 	//	}
-	//	if (planes[plane_ind]->points[i].y < miny.y)
+	//	if (cloud_hull_corners->points[i].y < miny.y)
 	//	{
 	//		//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
-	//		miny.x = planes[plane_ind]->points[i].x;
-	//		miny.y = planes[plane_ind]->points[i].y;
-	//		miny.z = planes[plane_ind]->points[i].z;
+	//		miny.x = cloud_hull_corners->points[i].x;
+	//		miny.y = cloud_hull_corners->points[i].y;
+	//		miny.z = cloud_hull_corners->points[i].z;
 	//	}
-	//	if (planes[plane_ind]->points[i].x > maxX.x)
+	//	if (cloud_hull_corners->points[i].x > maxX.x)
 	//	{
 	//		//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
-	//		maxX.x = planes[plane_ind]->points[i].x;
-	//		maxX.y = planes[plane_ind]->points[i].y;
-	//		maxX.z = planes[plane_ind]->points[i].z;
+	//		maxX.x = cloud_hull_corners->points[i].x;
+	//		maxX.y = cloud_hull_corners->points[i].y;
+	//		maxX.z = cloud_hull_corners->points[i].z;
 	//	}
-	//	if (planes[plane_ind]->points[i].y > maxY.y)
+	//	if (cloud_hull_corners->points[i].y > maxY.y)
 	//	{
 	//		//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
-	//		maxY.x = planes[plane_ind]->points[i].x;
-	//		maxY.y = planes[plane_ind]->points[i].y;
-	//		maxY.z = planes[plane_ind]->points[i].z;
+	//		maxY.x = cloud_hull_corners->points[i].x;
+	//		maxY.y = cloud_hull_corners->points[i].y;
+	//		maxY.z = cloud_hull_corners->points[i].z;
 	//	}
-
 	//}
-	//std::cout << maxY.y << maxX.x << std::endl;
-
-	float dist;
-
-	std::vector<float> vdist;
-	///vector<vector<int> > vind{{0,0},{0,0}};
-	std::vector<int> vi;
-	std::vector<int> vj;
-	int countav = 0;
-	float distav = 0;
-	float vmaxd = 0;
-
-	float maxd1 = 0;
-	int maxdi1;
-	int maxdj1;
-
-	float maxd2 = 0;
-	int maxdi2;
-	int maxdj2;
-
-	for (size_t i = 1; i < cloud_hull->points.size(); ++i) {
-		for (size_t j = i + 1; j < cloud_hull->points.size(); ++j) {
-			distav += sqrt(pow((cloud_hull->points[i].x - cloud_hull->points[j].x), 2) + pow((cloud_hull->points[i].y - cloud_hull->points[j].y), 2) + pow((cloud_hull->points[i].z - cloud_hull->points[j].z), 2));
-
-			countav += 1;
-		}
-	}
-	float av = (distav / countav) / 2.0;
-	std::cout << av << std::endl;
-
-	for (size_t i = 1; i < cloud_hull->points.size(); ++i) {
-		for (size_t j = i + 1; j < cloud_hull->points.size(); ++j) {
-			dist = sqrt(pow((cloud_hull->points[i].x - cloud_hull->points[j].x), 2) + pow((cloud_hull->points[i].y - cloud_hull->points[j].y), 2) + pow((cloud_hull->points[i].z - cloud_hull->points[j].z), 2));
-			if (dist > av) {
-				vdist.push_back(dist);
-				vi.push_back(i);
-				vj.push_back(j);
-				//std::cout << "hi";
-			}
-		}
-	}
-	std::cout << "hello";
-	for (int i = 0; i < vdist.size(); i++) {
-		if (vdist[i] > maxd1) {
-			maxd1 = vdist[i];
-			maxdi1 = vi[i];
-			maxdj1 = vj[i];
-		}
-	}
-	for (int i = 0; i < vdist.size(); i++) {
-		float xii1 = cloud_hull->points[maxdi1].x;
-		float xii2 = cloud_hull->points[vi[i]].x;
-		float yii1 = cloud_hull->points[maxdi1].y;
-		float yii2 = cloud_hull->points[vi[i]].y;
-		float zii1 = cloud_hull->points[maxdi1].z;
-		float zii2 = cloud_hull->points[vi[i]].z;
-
-		float xij1 = cloud_hull->points[maxdi1].x;
-		float xij2 = cloud_hull->points[vj[i]].x;
-		float yij1 = cloud_hull->points[maxdi1].y;
-		float yij2 = cloud_hull->points[vj[i]].y;
-		float zij1 = cloud_hull->points[maxdi1].z;
-		float zij2 = cloud_hull->points[vj[i]].z;
-
-		float xji1 = cloud_hull->points[maxdj1].x;
-		float xji2 = cloud_hull->points[vi[i]].x;
-		float yji1 = cloud_hull->points[maxdj1].y;
-		float yji2 = cloud_hull->points[vi[i]].y;
-		float zji1 = cloud_hull->points[maxdj1].z;
-		float zji2 = cloud_hull->points[vi[i]].z;
-
-		float xjj1 = cloud_hull->points[maxdj1].x;
-		float xjj2 = cloud_hull->points[vj[i]].x;
-		float yjj1 = cloud_hull->points[maxdj1].y;
-		float yjj2 = cloud_hull->points[vj[i]].y;
-		float zjj1 = cloud_hull->points[maxdj1].z;
-		float zjj2 = cloud_hull->points[vj[i]].z;
-
-		float distii = sqrt(pow(xii1 - xii2, 2) + pow(yii1 - yii2, 2) + pow(zii1 - zii2, 2)); // distance of current i to maxdi1
-		float distij = sqrt(pow(xij1 - xij2, 2) + pow(yij1 - yij2, 2) + pow(zij1 - zij2, 2)); // distance of current j to maxdi1
-		float distji = sqrt(pow(xji1 - xji2, 2) + pow(yji1 - yji2, 2) + pow(zji1 - zji2, 2)); // distance of current i to maxdj1
-		float distjj = sqrt(pow(xjj1 - xjj2, 2) + pow(yjj1 - yjj2, 2) + pow(zjj1 - zjj2, 2)); // distance of current j to maxdj1
+	// *******************************************************************************
+	// UNCOMMENT TO HERE FOR HULL AND CORNERS
+	// *******************************************************************************
 
 
-		if (vdist[i] > maxd2 && vi[i] != maxdi1 && vj[i] != maxdj1 && distii > av && distij > av && distji > av && distjj > av) {
-			maxd2 = vdist[i];
-			maxdi2 = vi[i];
-			maxdj2 = vj[i];
-		}
-	}
-	// 4 points generated above, now put them in a separate point cloud by themselves
-	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_hull_corners(new pcl::PointCloud<pcl::PointXYZ>);
-	cloud_hull_corners->resize(4);
-	cloud_hull_corners->points[0].x = cloud_hull->points[maxdi1].x;
-	cloud_hull_corners->points[0].y = cloud_hull->points[maxdi1].y;
-	cloud_hull_corners->points[0].z = cloud_hull->points[maxdi1].z;
+	// *******************************************************************************
+	// ORIENTED BOUNDING BOX BELOW
+	// FROM: http://codextechnicanum.blogspot.com/2015/04/find-minimum-oriented-bounding-box-of.html
+	// *******************************************************************************
+	// Compute principal directions
+	Eigen::Vector4f pcaCentroid;
+	pcl::compute3DCentroid(*planes[plane_ind], pcaCentroid);
+	Eigen::Matrix3f covariance;
+	computeCovarianceMatrixNormalized(*planes[plane_ind], pcaCentroid, covariance);
+	Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigen_solver(covariance, Eigen::ComputeEigenvectors);
+	Eigen::Matrix3f eigenVectorsPCA = eigen_solver.eigenvectors();
+	eigenVectorsPCA.col(2) = eigenVectorsPCA.col(0).cross(eigenVectorsPCA.col(1));  /// This line is necessary for proper orientation in some cases. The numbers come out the same without it, but
+																				///    the signs are different and the box doesn't get correctly oriented in some cases.
 
-	cloud_hull_corners->points[1].x = cloud_hull->points[maxdj1].x;
-	cloud_hull_corners->points[1].y = cloud_hull->points[maxdj1].y;
-	cloud_hull_corners->points[1].z = cloud_hull->points[maxdj1].z;
+	// Transform the original cloud to the origin where the principal components correspond to the axes.
+	Eigen::Matrix4f projectionTransform(Eigen::Matrix4f::Identity());
+	projectionTransform.block<3, 3>(0, 0) = eigenVectorsPCA.transpose();
+	projectionTransform.block<3, 1>(0, 3) = -1.f * (projectionTransform.block<3, 3>(0, 0) * pcaCentroid.head<3>());
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloudPointsProjected(new pcl::PointCloud<pcl::PointXYZ>);
+	pcl::transformPointCloud(*planes[plane_ind], *cloudPointsProjected, projectionTransform);
+	// Get the minimum and maximum points of the transformed cloud.
+	pcl::PointXYZ minPoint, maxPoint;
+	pcl::getMinMax3D(*cloudPointsProjected, minPoint, maxPoint);
+	const Eigen::Vector3f meanDiagonal = 0.5f * (maxPoint.getVector3fMap() + minPoint.getVector3fMap());
 
-	cloud_hull_corners->points[2].x = cloud_hull->points[maxdj2].x;
-	cloud_hull_corners->points[2].y = cloud_hull->points[maxdj2].y;
-	cloud_hull_corners->points[2].z = cloud_hull->points[maxdj2].z;
+	// Final transform
+	const Eigen::Quaternionf bboxQuaternion(eigenVectorsPCA); //Quaternions are a way to do rotations https://www.youtube.com/watch?v=mHVwd8gYLnI
+	const Eigen::Vector3f bboxTransform = eigenVectorsPCA * meanDiagonal + pcaCentroid.head<3>();
 
-	cloud_hull_corners->points[3].x = cloud_hull->points[maxdi2].x;
-	cloud_hull_corners->points[3].y = cloud_hull->points[maxdi2].y;
-	cloud_hull_corners->points[3].z = cloud_hull->points[maxdj2].z;
+	// This viewer has 4 windows, but is only showing images in one of them as written here.
+	pcl::visualization::PCLVisualizer* visu;
+	visu = new pcl::visualization::PCLVisualizer("PlyViewer");
+	int mesh_vp_1, mesh_vp_2, mesh_vp_3, mesh_vp_4;
+	visu->createViewPort(0.0, 0.5, 0.5, 1.0, mesh_vp_1);
+	visu->createViewPort(0.5, 0.5, 1.0, 1.0, mesh_vp_2);
+	visu->createViewPort(0.0, 0, 0.5, 0.5, mesh_vp_3);
+	visu->createViewPort(0.5, 0, 1.0, 0.5, mesh_vp_4);
+	visu->addPointCloud(planes[plane_ind], ColorHandlerXYZ(planes[plane_ind], 30, 144, 255), "bboxedCloud", mesh_vp_3);
+	visu->addCube(bboxTransform, bboxQuaternion, maxPoint.x - minPoint.x, maxPoint.y - minPoint.y, maxPoint.z - minPoint.z, "bbox", mesh_vp_3);
 
-	std::cout << "(" << cloud_hull->points[maxdi1].x << "," << cloud_hull->points[maxdi1].y << "," << cloud_hull->points[maxdi1].z << ")" << std::endl;
-	std::cout << "(" << cloud_hull->points[maxdj1].x << "," << cloud_hull->points[maxdj1].y << "," << cloud_hull->points[maxdj1].z << ")" << std::endl;
-	std::cout << "(" << cloud_hull->points[maxdi2].x << "," << cloud_hull->points[maxdi2].y << "," << cloud_hull->points[maxdi2].z << ")" << std::endl;
-	std::cout << "(" << cloud_hull->points[maxdj2].x << "," << cloud_hull->points[maxdj2].y << "," << cloud_hull->points[maxdj2].z << ")" << std::endl;
+	// *******************************************************************************
+	// ORIENTED BOUNDING BOX ABOVE
+	// *******************************************************************************
 
-	// 6c. Find min and max X and Y values in segment with min Z
-	// Now, get the min/max X/Y values from the plane with the minimum Z
-	for (size_t i = 0; i < cloud_hull_corners->points.size(); ++i) {
-		if (cloud_hull_corners->points[i].x < minx.x)
-		{
-			//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
-			minx.x = cloud_hull_corners->points[i].x;
-			minx.y = cloud_hull_corners->points[i].y;
-			minx.z = cloud_hull_corners->points[i].z;
-		}
-		if (cloud_hull_corners->points[i].y < miny.y)
-		{
-			//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
-			miny.x = cloud_hull_corners->points[i].x;
-			miny.y = cloud_hull_corners->points[i].y;
-			miny.z = cloud_hull_corners->points[i].z;
-		}
-		if (cloud_hull_corners->points[i].x > maxX.x)
-		{
-			//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
-			maxX.x = cloud_hull_corners->points[i].x;
-			maxX.y = cloud_hull_corners->points[i].y;
-			maxX.z = cloud_hull_corners->points[i].z;
-		}
-		if (cloud_hull_corners->points[i].y > maxY.y)
-		{
-			//std::cout << "i: " << i << " , points.z: " << cloud_filtered->points[i].z << " , minz.z: " << minZ.z << std::endl;
-			maxY.x = cloud_hull_corners->points[i].x;
-			maxY.y = cloud_hull_corners->points[i].y;
-			maxY.z = cloud_hull_corners->points[i].z;
-		}
-
-	}
 
 	/*returnValues.push_back(minx);
 	returnValues.push_back(miny);
@@ -563,7 +609,7 @@ int main(int argc, char* argv[]) try
 	filtered = spat_filter.process(filtered);
 	filtered = temp_filter.process(filtered);
 	filtered = disparity_to_depth.process(filtered);
-	
+
 	/*bool revert_disparity = false;
 	for (auto&& filter : filters)
 	{
