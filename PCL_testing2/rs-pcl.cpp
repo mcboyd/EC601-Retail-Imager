@@ -22,6 +22,7 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
+#include <string>
 #include <pcl/io/pcd_io.h>
 #include <pcl/common/common.h>
 #include <pcl/common/time.h>
@@ -45,23 +46,23 @@ struct state {
 
 typedef pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> ColorHandlerXYZ;
 
-using pcl_ptr = pcl::PointCloud<pcl::PointXYZ>::Ptr;
+using pcl_ptr = pcl::PointCloud<pcl::PointXYZRGB>::Ptr;
 using pointxyz_vect = std::vector<pcl::PointXYZ>;
 pcl::PointXYZ minZ;
 pcl::PointXYZ maxX = { -100,0,0 };
 pcl::PointXYZ maxY = { 0,-100,0 };
 pcl::PointXYZ minx = { 100,0,0 };
 pcl::PointXYZ miny = { 0,100,0 };
-pointxyz_vect minmaxXY, quadA(2), quadB(2), quadC(2), quadD(2);
+pointxyz_vect minmaxXY;
 std::ofstream outfile;// declaration of file pointer named outfile
 
-// Helper functions
+					  // Helper functions
 void register_glfw_callbacks(window& app, state& app_state);
 void draw_pointcloud(window& app, state& app_state, const std::vector<pcl_ptr>& points);
 
 pcl_ptr points_to_pcl(const rs2::points& points)
 {
-	pcl_ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+	pcl_ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 	pcl::StopWatch watch;
 	auto sp = points.get_profile().as<rs2::video_stream_profile>();
 	cloud->width = sp.width();
@@ -80,18 +81,18 @@ pcl_ptr points_to_pcl(const rs2::points& points)
 	outfile << "Time taken to convert: " << watch.getTimeSeconds() << "\n";
 
 	// 5. Filter cloud to focus on box of products
-	pcl_ptr cloud_filtered1(new pcl::PointCloud<pcl::PointXYZ>);
-	pcl::PassThrough<pcl::PointXYZ> pass1;
+	pcl_ptr cloud_filtered1(new pcl::PointCloud<pcl::PointXYZRGB>);
+	pcl::PassThrough<pcl::PointXYZRGB> pass1;
 	pass1.setInputCloud(cloud);
 	pass1.setFilterFieldName("z");
-	pass1.setFilterLimits(0.5, 0.67);  // Set z filter values here; can also x,y filter...
+	pass1.setFilterLimits(0.5, 0.68);  // Set z filter values here; can also x,y filter...
 	pass1.filter(*cloud_filtered1);
 	pcl::console::print_highlight("Time taken to filter z: %f\n", watch.getTimeSeconds());
 	outfile << "Time taken to filter: " << watch.getTimeSeconds() << "\n";
 
 	// 5. Filter cloud to focus on box of products
-	pcl_ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
-	pcl::PassThrough<pcl::PointXYZ> pass;
+	pcl_ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZRGB>);
+	pcl::PassThrough<pcl::PointXYZRGB> pass;
 	pass.setInputCloud(cloud_filtered1);
 	pass.setFilterFieldName("x");
 	pass.setFilterLimits(-0.3, 0.2);  // Set z filter values here; can also x,y filter...
@@ -145,10 +146,10 @@ int segment_minmax_xy(pcl_ptr& cloud_filtered)
 	std::vector<pcl_ptr> planes;
 	int plane_ind = -1;
 	int ind = 0;
-	pcl::PointCloud<pcl::PointXYZ>::Ptr cloudFiltered(new pcl::PointCloud<pcl::PointXYZ>), cloud_p(new pcl::PointCloud<pcl::PointXYZ>), cloud_f(new pcl::PointCloud<pcl::PointXYZ>);
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudFiltered(new pcl::PointCloud<pcl::PointXYZRGB>), cloud_p(new pcl::PointCloud<pcl::PointXYZRGB>), cloud_f(new pcl::PointCloud<pcl::PointXYZRGB>);
 
 	// Create the filtering object: downsample the dataset using a leaf size of 1mm
-	pcl::VoxelGrid<pcl::PointXYZ> sor;
+	pcl::VoxelGrid<pcl::PointXYZRGB> sor;
 	sor.setInputCloud(cloud_filtered);
 	sor.setLeafSize(0.001f, 0.001f, 0.001f);
 	sor.filter(*cloudFiltered);
@@ -157,7 +158,7 @@ int segment_minmax_xy(pcl_ptr& cloud_filtered)
 	pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients());
 	pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
 	// Create the segmentation object
-	pcl::SACSegmentation<pcl::PointXYZ> seg;
+	pcl::SACSegmentation<pcl::PointXYZRGB> seg;
 	// Optional
 	seg.setOptimizeCoefficients(true);
 	// Mandatory
@@ -167,7 +168,7 @@ int segment_minmax_xy(pcl_ptr& cloud_filtered)
 	seg.setDistanceThreshold(0.01);
 
 	// Create the filtering object
-	pcl::ExtractIndices<pcl::PointXYZ> extract;
+	pcl::ExtractIndices<pcl::PointXYZRGB> extract;
 
 	// Init variable used in thesegmentation and later processing
 	int i = 0, nr_points = (int)cloudFiltered->points.size();
@@ -226,7 +227,7 @@ int segment_minmax_xy(pcl_ptr& cloud_filtered)
 	pcl::io::savePCDFileASCII(filename, *planes[plane_ind]);
 
 	/*for (size_t i = 1; i < planes[plane_ind]->points.size(); ++i) {
-		std::cout << planes[plane_ind]->points[i] << std::endl;
+	std::cout << planes[plane_ind]->points[i] << std::endl;
 	}*/
 
 	// Create a Convex Hull representation of the min z plane segment
@@ -440,16 +441,16 @@ int segment_minmax_xy(pcl_ptr& cloud_filtered)
 	Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigen_solver(covariance, Eigen::ComputeEigenvectors);
 	Eigen::Matrix3f eigenVectorsPCA = eigen_solver.eigenvectors();
 	eigenVectorsPCA.col(2) = eigenVectorsPCA.col(0).cross(eigenVectorsPCA.col(1));  /// This line is necessary for proper orientation in some cases. The numbers come out the same without it, but
-																				///    the signs are different and the box doesn't get correctly oriented in some cases.
+																					///    the signs are different and the box doesn't get correctly oriented in some cases.
 
 	// Transform the original cloud to the origin where the principal components correspond to the axes.
 	Eigen::Matrix4f projectionTransform(Eigen::Matrix4f::Identity());
 	projectionTransform.block<3, 3>(0, 0) = eigenVectorsPCA.transpose();
 	projectionTransform.block<3, 1>(0, 3) = -1.f * (projectionTransform.block<3, 3>(0, 0) * pcaCentroid.head<3>());
-	pcl::PointCloud<pcl::PointXYZ>::Ptr cloudPointsProjected(new pcl::PointCloud<pcl::PointXYZ>);
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudPointsProjected(new pcl::PointCloud<pcl::PointXYZRGB>);
 	pcl::transformPointCloud(*planes[plane_ind], *cloudPointsProjected, projectionTransform);
 	// Get the minimum and maximum points of the transformed cloud.
-	pcl::PointXYZ minPoint, maxPoint;
+	pcl::PointXYZRGB minPoint, maxPoint;
 	pcl::getMinMax3D(*cloudPointsProjected, minPoint, maxPoint);
 	const Eigen::Vector3f meanDiagonal = 0.5f * (maxPoint.getVector3fMap() + minPoint.getVector3fMap());
 
@@ -457,17 +458,81 @@ int segment_minmax_xy(pcl_ptr& cloud_filtered)
 	const Eigen::Quaternionf bboxQuaternion(eigenVectorsPCA); //Quaternions are a way to do rotations https://www.youtube.com/watch?v=mHVwd8gYLnI
 	const Eigen::Vector3f bboxTransform = eigenVectorsPCA * meanDiagonal + pcaCentroid.head<3>();
 
-	// This viewer has 4 windows, but is only showing images in one of them as written here.
-	pcl::visualization::PCLVisualizer* visu;
-	visu = new pcl::visualization::PCLVisualizer("PlyViewer");
-	int mesh_vp_1, mesh_vp_2, mesh_vp_3, mesh_vp_4;
-	visu->createViewPort(0.0, 0.5, 0.5, 1.0, mesh_vp_1);
-	visu->createViewPort(0.5, 0.5, 1.0, 1.0, mesh_vp_2);
-	visu->createViewPort(0.0, 0, 0.5, 0.5, mesh_vp_3);
-	visu->createViewPort(0.5, 0, 1.0, 0.5, mesh_vp_4);
-	visu->addPointCloud(planes[plane_ind], ColorHandlerXYZ(planes[plane_ind], 30, 144, 255), "bboxedCloud", mesh_vp_3);
-	visu->addCube(bboxTransform, bboxQuaternion, maxPoint.x - minPoint.x, maxPoint.y - minPoint.y, maxPoint.z - minPoint.z, "bbox", mesh_vp_3);
+	// The viewer...
+	//pcl::visualization::PCLVisualizer* visu;
+	//visu = new pcl::visualization::PCLVisualizer("3D Viewer");
+	//int mesh_vp_3;
+	//visu->createViewPort(0.0, 0, 1.0, 1.0, mesh_vp_3);
+	//visu->addPointCloud(planes[plane_ind], ColorHandlerXYZ(planes[plane_ind], 30, 144, 255), "bboxedCloud", mesh_vp_3);
+	//visu->addCube(bboxTransform, bboxQuaternion, maxPoint.x - minPoint.x, maxPoint.y - minPoint.y, maxPoint.z - minPoint.z, "bbox", mesh_vp_3);
+	//visu->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "bbox");
 
+	std::cout << "max point: " << maxPoint << std::endl;
+	std::cout << "min point: " << minPoint << std::endl;
+	std::cout << "width: " << maxPoint.x - minPoint.x << std::endl;
+	std::cout << "height: " << maxPoint.y - minPoint.y << std::endl;
+	std::cout << "depth: " << maxPoint.z - minPoint.z << std::endl;
+	outfile << "max point: " << maxPoint << "\n";
+	outfile << "min point: " << minPoint << "\n";
+	outfile << "width: " << maxPoint.x - minPoint.x << "\n";
+	outfile << "height: " << maxPoint.y - minPoint.y << "\n";
+	outfile << "depth: " << maxPoint.z - minPoint.z << "\n";
+
+	Eigen::Vector3f p1(minPoint.x, minPoint.y, minPoint.z);  // MIN X, MIN Y - Quad D
+	Eigen::Vector3f p2(minPoint.x, minPoint.y, maxPoint.z);  // MAX X, MIN Y - Quad C
+	Eigen::Vector3f p3(maxPoint.x, minPoint.y, maxPoint.z);
+	Eigen::Vector3f p4(maxPoint.x, minPoint.y, minPoint.z);  
+	Eigen::Vector3f p5(minPoint.x, maxPoint.y, minPoint.z);  // MIN X, MAX Y - Quad A
+	Eigen::Vector3f p6(minPoint.x, maxPoint.y, maxPoint.z);  // MAX X, MAX Y - Quad B
+	Eigen::Vector3f p7(maxPoint.x, maxPoint.y, maxPoint.z);
+	Eigen::Vector3f p8(maxPoint.x, maxPoint.y, minPoint.z);  
+
+	p1 = eigenVectorsPCA * p1 + bboxTransform;
+	p2 = eigenVectorsPCA * p2 + bboxTransform;
+	p3 = eigenVectorsPCA * p3 + bboxTransform;
+	p4 = eigenVectorsPCA * p4 + bboxTransform;
+	p5 = eigenVectorsPCA * p5 + bboxTransform;
+	p6 = eigenVectorsPCA * p6 + bboxTransform;
+	p7 = eigenVectorsPCA * p7 + bboxTransform;
+	p8 = eigenVectorsPCA * p8 + bboxTransform;
+
+	minx.x = p1[0];
+	minx.y = p1[1];
+	minx.z = p1[2];
+	miny.x = p2[0];
+	miny.y = p2[1];
+	miny.z = p2[2];
+	maxX.x = p6[0];
+	maxX.y = p6[1];
+	maxX.z = p6[2];
+	maxY.x = p5[0];
+	maxY.y = p5[1];
+	maxY.z = p5[2];
+	
+	
+	std::cout << "p1 point (min x, min y, D): (" << p1[0] << "," << p1[1] << "," << p1[2] << ")" << std::endl;
+	std::cout << "p2 point (max x, min y, C): (" << p2[0] << "," << p2[1] << "," << p2[2] << ")" << std::endl;
+	std::cout << "p5 point (min x, max y, A): (" << p5[0] << "," << p5[1] << "," << p5[2] << ")" << std::endl;
+	std::cout << "p6 point (max x, may y, B): (" << p6[0] << "," << p6[1] << "," << p6[2] << ")" << std::endl;
+	outfile << "p1 point (min x, min y, D): (" << p1[0] << "," << p1[1] << "," << p1[2] << ")" << "\n";
+	outfile << "p2 point (max x, min y, C): (" << p2[0] << "," << p2[1] << "," << p2[2] << ")" << "\n";
+	outfile << "p5 point (min x, max y, A): (" << p5[0] << "," << p5[1] << "," << p5[2] << ")" << "\n";
+	outfile << "p6 point (max x, may y, B): (" << p6[0] << "," << p6[1] << "," << p6[2] << ")" << "\n";
+	/*std::cout << "p2 point (transformed): (" << p2.x << "," << p2.y << "," << p2.z << ")" << std::endl;
+	std::cout << "p3 point (transformed): (" << p3.x << "," << p3.y << "," << p3.z << ")" << std::endl;
+	std::cout << "p4 point (transformed): (" << p4.x << "," << p4.y << "," << p4.z << ")" << std::endl;
+	std::cout << "p5 point (transformed): (" << p5.x << "," << p5.y << "," << p5.z << ")" << std::endl;
+	std::cout << "p6 point (transformed): (" << p6.x << "," << p6.y << "," << p6.z << ")" << std::endl;
+	std::cout << "p7 point (transformed): (" << p7.x << "," << p7.y << "," << p7.z << ")" << std::endl;
+	std::cout << "p8 point (transformed): (" << p8.x << "," << p8.y << "," << p8.z << ")" << std::endl;
+	outfile << "p1 point (transformed): (" << p1.x << "," << p1.y << "," << p1.z << ")" << "\n";
+	outfile << "p2 point (transformed): (" << p2.x << "," << p2.y << "," << p2.z << ")" << "\n";
+	outfile << "p3 point (transformed): (" << p3.x << "," << p3.y << "," << p3.z << ")" << "\n";
+	outfile << "p4 point (transformed): (" << p4.x << "," << p4.y << "," << p4.z << ")" << "\n";
+	outfile << "p5 point (transformed): (" << p5.x << "," << p5.y << "," << p5.z << ")" << "\n";
+	outfile << "p6 point (transformed): (" << p6.x << "," << p6.y << "," << p6.z << ")" << "\n";
+	outfile << "p7 point (transformed): (" << p7.x << "," << p7.y << "," << p7.z << ")" << "\n";
+	outfile << "p8 point (transformed): (" << p8.x << "," << p8.y << "," << p8.z << ")" << "\n";*/
 	// *******************************************************************************
 	// ORIENTED BOUNDING BOX ABOVE
 	// *******************************************************************************
@@ -513,7 +578,7 @@ int main(int argc, char* argv[]) try
 {
 	outfile.open("c:/Bin/test_log.txt", std::ios::out); // opens file named "filename" for output
 
-	// Create a simple OpenGL window for rendering:
+														// Create a simple OpenGL window for rendering:
 	window app(1280, 720, "RealSense PCL Pointcloud Example");
 	// Construct an object to manage view state
 	state app_state;
@@ -529,6 +594,13 @@ int main(int argc, char* argv[]) try
 	rs2::config cfg;
 	cfg.enable_stream(RS2_STREAM_COLOR, 1920, 1080);
 	cfg.enable_stream(RS2_STREAM_DEPTH, 1280, 720);
+
+	rs2::context ctx; // Create librealsense context for managing devices
+	auto list = ctx.query_devices(); // Get a snapshot of currently connected devices
+	rs2::device dev = list.front();
+	auto depthSensor = dev.first<rs2::depth_sensor>();
+	// set depth unit
+	depthSensor.set_option(RS2_OPTION_DEPTH_UNITS, 0.0001); // 0.0001
 
 	// Declare RealSense pipeline, encapsulating the actual device and sensors
 	rs2::pipeline pipe;
@@ -550,7 +622,7 @@ int main(int argc, char* argv[]) try
 	rs2::spatial_filter spat_filter;    // Spatial    - edge-preserving spatial smoothing
 	rs2::temporal_filter temp_filter;   // Temporal   - reduces temporal noise
 
-	// Declare disparity transform from depth to disparity and vice versa
+										// Declare disparity transform from depth to disparity and vice versa
 	const std::string disparity_filter_name = "Disparity";
 	rs2::disparity_transform depth_to_disparity(true);
 	rs2::disparity_transform disparity_to_depth(false);
@@ -593,16 +665,16 @@ int main(int argc, char* argv[]) try
 
 	// For post-processing:
 	rs2::frame filtered = depth; // Does not copy the frame, only adds a reference
-	/* Apply filters.
-	The implemented flow of the filters pipeline is in the following order:
-	1. apply decimation filter
-	2. apply threshold filter
-	3. transform the scene into disparity domain
-	4. apply spatial filter
-	5. apply temporal filter
-	6. revert the results back (if step Disparity filter was applied
-	to depth domain (each post processing block is optional and can be applied independantly).
-	*/
+								 /* Apply filters.
+								 The implemented flow of the filters pipeline is in the following order:
+								 1. apply decimation filter
+								 2. apply threshold filter
+								 3. transform the scene into disparity domain
+								 4. apply spatial filter
+								 5. apply temporal filter
+								 6. revert the results back (if step Disparity filter was applied
+								 to depth domain (each post processing block is optional and can be applied independantly).
+								 */
 	filtered = dec_filter.process(filtered);
 	filtered = thr_filter.process(filtered);
 	filtered = depth_to_disparity.process(filtered);
@@ -613,15 +685,15 @@ int main(int argc, char* argv[]) try
 	/*bool revert_disparity = false;
 	for (auto&& filter : filters)
 	{
-		filtered = filter.filter.process(filtered);
-		if (filter.filter_name == disparity_filter_name)
-		{
-			revert_disparity = true;
-		}
+	filtered = filter.filter.process(filtered);
+	if (filter.filter_name == disparity_filter_name)
+	{
+	revert_disparity = true;
+	}
 	}
 	if (revert_disparity)
 	{
-		filtered = disparity_to_depth.process(filtered);
+	filtered = disparity_to_depth.process(filtered);
 	}*/
 
 	// Generate the pointcloud and texture mappings
@@ -650,7 +722,7 @@ int main(int argc, char* argv[]) try
 	int segment = segment_minmax_xy(pcl_points);
 
 	// 7. Calculate box dimensions from min and max X, Y values
-	std::vector<float> dimensions = calcDims();
+	//std::vector<float> dimensions = calcDims();
 
 	// 8. Project (x,y,z) points of corners (min and max X, Y) to (u,x) pixels of color image
 	//float minZpixel[2];
@@ -681,16 +753,20 @@ int main(int argc, char* argv[]) try
 		outfile << "Image y: " << pixel[1] << "\n";
 	}
 
-
 	// Write images to disk
 	std::stringstream png_file;
 	//png_file << "c:/Bin/rs-save-to-disk-output-" << "test.png";
 	stbi_write_png("c:/Bin/test.png", color.get_width(), color.get_height(),
 		color.get_bytes_per_pixel(), color.get_data(), color.get_stride_in_bytes());
+	stbi_write_jpg("c:/Bin/test.jpg", color.get_width(), color.get_height(),
+		color.get_bytes_per_pixel(), color.get_data(), 100);
 	std::cout << "Saved " << png_file.str() << std::endl;
 
-	pcl_ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
-	pcl::PassThrough<pcl::PointXYZ> pass;
+	std::string s2 = "python3 C:/Bin/imgextract_example.py --image C:/Bin/test.png --coords \"[(" + std::to_string((int)minMaxPixels[0][0]) + "," + std::to_string((int)minMaxPixels[0][1]) + "),(" + std::to_string((int)minMaxPixels[1][0]) + "," + std::to_string((int)minMaxPixels[1][1]) + "),(" + std::to_string((int)minMaxPixels[2][0]) + "," + std::to_string((int)minMaxPixels[2][1]) + "),(" + std::to_string((int)minMaxPixels[3][0]) + "," + std::to_string((int)minMaxPixels[3][1]) + ")]";
+	system(s2.c_str());
+	
+	pcl_ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZRGB>);
+	pcl::PassThrough<pcl::PointXYZRGB> pass;
 	pass.setInputCloud(pcl_points);
 	pass.setFilterFieldName("z");
 	pass.setFilterLimits(0.0, 1.0);
@@ -698,7 +774,7 @@ int main(int argc, char* argv[]) try
 
 	std::vector<pcl_ptr> layers;
 	layers.push_back(pcl_points);
-	layers.push_back(cloud_filtered);
+	//layers.push_back(cloud_filtered);
 
 	while (app) // Application still alive?
 	{
@@ -789,15 +865,16 @@ void draw_pointcloud(window& app, state& app_state, const std::vector<pcl_ptr>& 
 
 	for (auto&& pc : points)
 	{
-		auto c = colors[(color++) % (sizeof(colors) / sizeof(float3))];
+		//auto c = colors[(color++) % (sizeof(colors) / sizeof(float3))];
 		glPointSize(1);
 		glBegin(GL_POINTS);
-		glColor3f(c.x, c.y, c.z);
+		//glColor3f(c.x, c.y, c.z);
 
 		/* this segment actually prints the pointcloud */
 		for (int i = 0; i < pc->points.size(); i++)
 		{
 			auto&& p = pc->points[i];
+
 			if (p.z)
 			{
 				// upload the point and texture coordinates only for points we have depth data for
@@ -812,11 +889,11 @@ void draw_pointcloud(window& app, state& app_state, const std::vector<pcl_ptr>& 
 		glPointSize(6);  // Make it bigger so we can see it
 		glBegin(GL_POINTS);
 		glColor3f(0.8, 0.1, 0.3);  // Red color for minZ
-		// Display the point minZ
+								   // Display the point minZ
 		glVertex3f(minZ.x, minZ.y, minZ.z);
 
 		glColor3f(0.0, 0.0, 1.0);  // Blue color (for X/Y values)
-		// Display the points 
+								   // Display the points 
 		glVertex3f(minx.x, minx.y, minx.z);
 		glVertex3f(miny.x, miny.y, miny.z);
 		glVertex3f(maxX.x, maxX.y, maxX.z);
