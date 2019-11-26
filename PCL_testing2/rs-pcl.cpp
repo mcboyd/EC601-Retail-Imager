@@ -223,7 +223,7 @@ int segment_minmax_xy(pcl_ptr& cloud_filtered)
 	std::cout << "plane-ind: " << plane_ind << std::endl;
 	outfile << "plane-ind: " << plane_ind << "\n";
 
-	std::string filename = "C:/bin/test_pcd.pcd";
+	std::string filename = "C:/Bin/test_pcd.pcd";
 	pcl::io::savePCDFileASCII(filename, *planes[plane_ind]);
 
 	/*for (size_t i = 1; i < planes[plane_ind]->points.size(); ++i) {
@@ -764,6 +764,10 @@ int main(int argc, char* argv[]) try
 
 	std::string s2 = "python3 C:/Bin/imgextract_example.py --image C:/Bin/test.png --coords \"[(" + std::to_string((int)minMaxPixels[0][0]) + "," + std::to_string((int)minMaxPixels[0][1]) + "),(" + std::to_string((int)minMaxPixels[1][0]) + "," + std::to_string((int)minMaxPixels[1][1]) + "),(" + std::to_string((int)minMaxPixels[2][0]) + "," + std::to_string((int)minMaxPixels[2][1]) + "),(" + std::to_string((int)minMaxPixels[3][0]) + "," + std::to_string((int)minMaxPixels[3][1]) + ")]";
 	system(s2.c_str());
+	s2 = "c:/Bin/venv/Scripts/activate && python C:/Bin/EC601/SIFT_ImportImages_SaveObj.py";
+	system(s2.c_str());
+	/*s2 = "";
+	system(s2.c_str());*/
 	
 	pcl_ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZRGB>);
 	pcl::PassThrough<pcl::PointXYZRGB> pass;
