@@ -51,11 +51,11 @@ pcl::PointXYZ minZ, cornerp1, cornerp2, cornerp3, cornerp4;
 int width, height, longedge;
 pointxyz_vect minmaxXY;
 std::ofstream outfile;// declaration of file pointer named outfile
+pcl::StopWatch watch; // timer to track functions
 
 pcl_ptr points_to_pcl(const rs2::points& points)
 {
 	pcl_ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-	pcl::StopWatch watch;
 	auto sp = points.get_profile().as<rs2::video_stream_profile>();
 	cloud->width = sp.width();
 	cloud->height = sp.height();
@@ -218,8 +218,8 @@ int segment_minmax_xy(pcl_ptr& cloud_filtered)
 	// 7. Calculate box dimensions from OBB
 	width = (maxPoint.z - minPoint.z) * 100;  // The z being width is a feature of the OBB calculations
 	height = (maxPoint.y - minPoint.y) * 100;
-	longedge = (height/5) * 5;  // Edge used to determine which database to search
-	if (width > height) longedge = (width/5) * 5;
+	longedge = ((height/5) * 5) + 5;  // Edge used to determine which database to search
+	if (width > height) longedge = ((width/5) * 5) + 5;
 	outfile << "max point: " << maxPoint << "\n";
 	outfile << "min point: " << minPoint << "\n";
 	outfile << "depth: " << maxPoint.x - minPoint.x << "\n";
@@ -272,6 +272,7 @@ int main(int argc, char* argv[]) try
 	// 3. Align frames
 	// 4. Generate point cloud
 
+	watch.reset();
 	outfile.open("log.txt", std::ios::out); // opens file named "filename" for output
 
 	// Declare pointcloud object, for calculating pointclouds and texture mappings
@@ -314,6 +315,8 @@ int main(int argc, char* argv[]) try
 	rs2::disparity_transform depth_to_disparity(true);
 	rs2::disparity_transform disparity_to_depth(false);
 
+	outfile << "Time taken to setup camera: " << watch.getTimeSeconds() << "\n";
+
 	// Wait for the next set of frames from the camera
 	// Camera warmup - dropping several first frames to let auto-exposure stabilize
 	rs2::frameset frames;
@@ -323,9 +326,13 @@ int main(int argc, char* argv[]) try
 		frames = pipe.wait_for_frames();
 	}
 
+	outfile << "Time taken to capture useful frames: " << watch.getTimeSeconds() << "\n";
+
 	// 3. Align frames
 	// Align frames for projection
 	frames = align.process(frames);
+
+	outfile << "Time taken to align frames: " << watch.getTimeSeconds() << "\n";
 
 	// 1. Capture depth frame @ 1280x720
 	auto depth = frames.get_depth_frame();
@@ -351,8 +358,12 @@ int main(int argc, char* argv[]) try
 	filtered = temp_filter.process(filtered);
 	filtered = disparity_to_depth.process(filtered);
 
+	outfile << "Time taken for depth post-processing: " << watch.getTimeSeconds() << "\n";
+
 	// Generate the pointcloud and texture mappings
 	points = pc.calculate(depth);
+
+	outfile << "Time taken to calculate depth: " << watch.getTimeSeconds() << "\n";
 
 	// 2. Capture color frame @ 1920x1080
 	auto color = frames.get_color_frame();
@@ -361,6 +372,8 @@ int main(int argc, char* argv[]) try
 
 	// Tell pointcloud object to map to this color frame
 	pc.map_to(color);
+
+	outfile << "Time taken to map color to point cloud: " << watch.getTimeSeconds() << "\n";
 
 	// 4. Generate point cloud
 	auto pcl_points = points_to_pcl(points);
@@ -371,6 +384,8 @@ int main(int argc, char* argv[]) try
 	// 7. Calculate box dimensions from OBB
 	// 8. Find corner points from OBB
 	int segment = segment_minmax_xy(pcl_points);
+
+	outfile << "Time taken to segment: " << watch.getTimeSeconds() << "\n";
 
 	// 8. Project (x,y,z) points of corners (min and max X, Y) to (u,v) pixels of color image
 	minmaxXY.push_back(cornerp1);
@@ -394,20 +409,28 @@ int main(int argc, char* argv[]) try
 		outfile << "Image y: " << pixel[1] << "\n";
 	}
 
+	outfile << "Time taken to project pixels: " << watch.getTimeSeconds() << "\n";
+
 	// Write images to disk
 	std::stringstream png_file;
 	stbi_write_png("Img/scene.png", color.get_width(), color.get_height(),
 		color.get_bytes_per_pixel(), color.get_data(), color.get_stride_in_bytes());
 	outfile << "Saved image of scene: Img/scene.png\n";
 
+	outfile << "Time taken to save PNG: " << watch.getTimeSeconds() << "\n";
+
 	// 10. Call Python & OpenCV: crop and rotate product of interest from color frame, save as PNG
 	std::string s2 = "python3 imgextract_prod.py --image Img/scene.png --coords \"[(" + std::to_string((int)minMaxPixels[0][0]) + "," + std::to_string((int)minMaxPixels[0][1]) + "),(" + std::to_string((int)minMaxPixels[1][0]) + "," + std::to_string((int)minMaxPixels[1][1]) + "),(" + std::to_string((int)minMaxPixels[2][0]) + "," + std::to_string((int)minMaxPixels[2][1]) + "),(" + std::to_string((int)minMaxPixels[3][0]) + "," + std::to_string((int)minMaxPixels[3][1]) + ")]";
 	system(s2.c_str());
+
+	outfile << "Time taken to call 1st Python script: " << watch.getTimeSeconds() << "\n";
 
 	// 11. Call Python & OpenCV: grab newly exported image from (10) above, SIFT-extract its features,
 	// search for it in the database specified, and send matching product Id to GUI (end of process)
 	s2 = "c:/Bin/venv/Scripts/activate && python FLANN_Index_Search.py " + std::to_string(longedge) + " Img/product.png";
 	system(s2.c_str());
+
+	outfile << "Time taken to call 2nd Python script: " << watch.getTimeSeconds() << "\n";
 	
 	return EXIT_SUCCESS;
 }
