@@ -3,7 +3,9 @@ var app = express();
 var http=require('http').Server(app);
 var io=require('socket.io')(http);
 var mysql=require('mysql');
-var Result = " ";
+const execFile = require('child_process').execFile;
+var sqlResult = " ";
+var jobStatus = "Stopped";
 var connection = mysql.createConnection({
     host     : 'localhost',
     user     : 'root',
@@ -12,13 +14,19 @@ var connection = mysql.createConnection({
     database: 'retail_imager',
 });
 
-
 connection.connect();
 
 app.use(express.static('public'));
 
 app.get('/start',function(req,res) {
-    console.log("start recieve");
+    if (jobStatus == "Stopped") {
+        jobStatus = "Started";
+        startImaging();  // Runs every 90 seconds
+    } else {
+        jobStatus = "Stopped";
+    }
+    console.log(jobStatus);
+    io.emit('jobStatus', jobStatus);
     res.sendStatus(200);
 });
 
@@ -40,10 +48,10 @@ app.get('/process_get',function(req,res) {
         }
         console.log('--------------------------SELECT----------------------------');
         console.log(result);
-        Result=result[0];
-        Result = JSON.stringify(Result);
+        sqlResult=result[0];
+        sqlResult = JSON.stringify(sqlResult);
         console.log('------------------------------------------------------------\n\n');
-        io.emit('match', Result);
+        io.emit('match', sqlResult);
     });
     res.sendStatus(200);
 });
@@ -51,11 +59,27 @@ app.get('/process_get',function(req,res) {
 io.sockets.on('connection',function(socket) {
     //console.log('good');
     //socket.broadcast.emit('users',Result);
+    if (sqlResult != " ") {
+        io.emit('match', sqlResult);
+    }
+    io.emit('jobStatus', jobStatus);
 });
 
 
+var startImaging = function() {
+    if (jobStatus != "Stopped") {
+        child = execFile('notepad.exe', (error, stdout, stderr) => {
+            if (error) {
+                console.error('stderr', stderr);
+                throw error;
+            }
+            console.log('stdout ', stdout);
+        });
+        setTimeout(startImaging, 5000);
+    }
+}
 
  
-http.listen(3000,function(){
-    console.log('listen: 3000');
+http.listen(8081,function(){
+    console.log('listen: 8081');
   });
