@@ -1,47 +1,35 @@
 var express = require('express');
-var mysql  = require('mysql');
 var app = express();
-const exphbs = require('express-handlebars');
-var server = require('http').Server(express);
+var http=require('http').Server(app);
+var io=require('socket.io')(http);
+var mysql=require('mysql');
+var Result = " ";
+var connection = mysql.createConnection({
+    host     : 'localhost',
+    user     : 'root',
+    password : 'retail-Imager1',
+    port: '3306',
+    database: 'retail_imager',
+});
 
-var response={};
 
-var io = require('socket.io')(server);
-var Result='';
-var can = [];
+connection.connect();
 
-app.use(express.static(__dirname + '/public'));
+app.use(express.static('public'));
 
-app.engine('html', exphbs({
-    layoutsDir: 'views',
-    defaultLayout: 'layout',
-    extname: '.html'
-}));
-app.set('view engine', 'html');
+app.get('/start',function(req,res) {
+    console.log("start recieve");
+    res.sendStatus(200);
+});
 
-//send the html file
-app.get('/', function (req, res) {
+app.get('/',function(req,res) {
     res.sendFile( __dirname + "/views/start.html" );
-})
+  });
 
-
-//after getting the id, connect the mysql db
-app.get('/process_get', function (req, res) {
-    // JSON file output
+app.get('/process_get',function(req,res) {
     response = {
         "prodid":req.query.prodid,
     };
-    //create the connection
-    var connection = mysql.createConnection({
-        host     : 'localhost',
-        user     : 'root',
-        password : '123456',
-        port: '3306',
-        database: 'retail_imager',
-    });
-    //connect thr DB
-    connection.connect();
-    //search the db
     sql = 'SELECT * FROM product where prodid = '+response.prodid;
     //start searching
     connection.query(sql,function (err, result) {
@@ -52,34 +40,22 @@ app.get('/process_get', function (req, res) {
         }
         console.log('--------------------------SELECT----------------------------');
         console.log(result);
-        Result=result;
+        Result=result[0];
         Result = JSON.stringify(Result);
-        can = Result.replace(/:/g,'');
-        can = (can || "").split('"');
         console.log('------------------------------------------------------------\n\n');
+        io.emit('match', Result);
     });
-    //end the connection
-   connection.end();
-   res.render('pre', {
-    layout: false,
-    title: "Imager",
-    personInfoList: [{
-        id: (can[2] || "").split(",")[0],
-        name: can[13],
-        brand:can[9],
-        sku: can[5],
-        price: (can[20] || "").split(",")[0],
-        quan: can[17],
-        num: "product" + (can[2] || "").split(",")[0] + ".jpg"// need to redefine the name of the image according to the local address
-    }]
+    res.sendStatus(200);
 });
-})
+
+io.sockets.on('connection',function(socket) {
+    //console.log('good');
+    //socket.broadcast.emit('users',Result);
+});
 
 
 
-
-server = app.listen(8081, function () {
-     var host = server.address().address
-     var port = server.address().port
-     console.log("listening on http://%s:%s", host, port)
- })
+ 
+http.listen(3000,function(){
+    console.log('listen: 3000');
+  });
