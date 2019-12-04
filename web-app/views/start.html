@@ -19,11 +19,11 @@
       <div class="navbar-header">
         <a class="navbar-brand" href="#">Retail Product Imager</a>
         <ul class="nav navbar-nav">
-            <li>
-                <p class="navbar-btn">
-                    <button id = "button">START</button>
-                </p>
-            </li>
+          <li>
+            <p class="navbar-btn">
+              <button type="button" id="button" class="btn btn-success">START</button>
+            </p>
+          </li>
         </ul>
       </div>
     </div>
@@ -47,11 +47,15 @@
       <div class="col-md-4">
         <div class="panel panel-default">
           <div class="panel-body">
-            <p>Brand: <span id="pBrand" class="pull-right "></span></p>
-            <p>Name: <span id="pName" class="pull-right "></span></p>
-            <p>Quantity: <span id="pQty" class="pull-right "></span></p>
-            <p>Price: <span id="pPrice" class="pull-right "></span></p>
-            <p>SKU: <span id="pSku" class="pull-right "></span></p>
+            <h4>
+              <span id="pBrand" class="small"></span><br/>
+              <span id="pName" class="text-primary"></span>
+            </h4>
+            <ul>
+              <li><span id="pQty"></span></li>
+              <li><span id="pPrice"></span></li>
+              <li>SKU: <span id="pSku"></span></li>
+            </ul>
           </div>
           <div class="panel-footer">Product Details</div>
         </div>
@@ -71,7 +75,8 @@
   <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
   <script>
         // var socket = io.connect();
-        var socket = io.connect('http://localhost:3000');
+        var socket = io.connect('http://localhost:8081');
+        var jobStatus = "Stopped";
         socket.on('match',function(data){
             console.log(data);
             var obj = JSON.parse(data);
@@ -84,6 +89,17 @@
             document.getElementById("imgProd").src = "img/"+obj.prodid+"_1.png";
             console.log(obj.prodid+"_1.png");
         });
+        socket.on('jobStatus',function(data){
+            console.log(data);
+            jobStatus = data;
+            if (jobStatus == "Stopped") {
+                $("#button").html('START');
+                $("#button").removeClass("btn-danger").addClass("btn-success");
+            } else {
+                $("#button").html('STOP');
+                $("#button").removeClass("btn-success").addClass("btn-danger");
+            }
+        });
     </script>
 
     <script>
@@ -93,11 +109,7 @@
             type: "GET",
             url: "/start",
             success: function(result) {
-              if (button.innerHTML == 'START') {
-                button.innerHTML = 'STOP';
-              } else {
-                button.innerHTML = 'START';
-              }
+              console.log("done");
             }
           });
         });
