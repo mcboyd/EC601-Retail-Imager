@@ -2,27 +2,105 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Imager</title>
-<link rel="stylesheet" href="https://cdn.bootcss.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css">
-
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retail Product Imager</title>
+<link rel="stylesheet" href="//cdn.bootcss.com/bootstrap/3.3.5/css/bootstrap.min.css">
+<link rel="stylesheet" type="text/css" href="css/ri.css" />
 </head>    
-<body style="padding: 120px;">
-
-<h1 class="text-center"> <strong>Imager</strong></h1>
-
-
 <body>
-  <form action="http://127.0.0.1:8081/process_get" method = "GET">
-      prodid:<input type="text" name="prodid">
-      <br>
-  
-      <input type="submit" value ="start">
-  
-  </form>
-  
-  
-  </body>
-<p></p>
 
+<!-- Wrap all page content here -->
+<div id="wrap">
+  
+  <!-- Fixed navbar -->
+  <div class="navbar navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <a class="navbar-brand" href="#">Retail Product Imager</a>
+        <ul class="nav navbar-nav">
+            <li>
+                <p class="navbar-btn">
+                    <button id = "button">START</button>
+                </p>
+            </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Begin page content -->
+  <div class="container">
+    <div class="row">
+      <div class="col-md-4">
+        <div class="panel panel-default">
+          <div class="panel-body"><img src="http://placehold.it/350X350" class="img-responsive" id="imgCap"></div>
+          <div class="panel-footer">Captured Image</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="panel panel-default">
+          <div class="panel-body"><img src="http://placehold.it/350X350" class="img-responsive" id="imgProd"></div>
+          <div class="panel-footer">Product Image</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="panel panel-default">
+          <div class="panel-body">
+            <p>Brand: <span id="pBrand" class="pull-right "></span></p>
+            <p>Name: <span id="pName" class="pull-right "></span></p>
+            <p>Quantity: <span id="pQty" class="pull-right "></span></p>
+            <p>Price: <span id="pPrice" class="pull-right "></span></p>
+            <p>SKU: <span id="pSku" class="pull-right "></span></p>
+          </div>
+          <div class="panel-footer">Product Details</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="footer">
+  <div class="container">
+    <p class="text-muted credit">&copy MCB</p>
+  </div>
+</div>
+<script src="//cdn.bootcss.com/jquery/1.11.3/jquery.min.js"></script>
+<script src="//cdn.bootcss.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+  <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+  <script>
+        // var socket = io.connect();
+        var socket = io.connect('http://localhost:3000');
+        socket.on('match',function(data){
+            console.log(data);
+            var obj = JSON.parse(data);
+            $('#pBrand').text(obj.brand);
+            $('#pName').text(obj.name);
+            $('#pQty').text(obj.quantity);
+            $('#pPrice').text('$'+obj.price);
+            $('#pSku').text(obj.SKU);
+            document.getElementById("imgCap").src = "product.png";
+            document.getElementById("imgProd").src = "img/"+obj.prodid+"_1.png";
+            console.log(obj.prodid+"_1.png");
+        });
+    </script>
+
+    <script>
+        const button = document.querySelector('button');
+        button.addEventListener('click', event => {
+          $.ajax({
+            type: "GET",
+            url: "/start",
+            success: function(result) {
+              if (button.innerHTML == 'START') {
+                button.innerHTML = 'STOP';
+              } else {
+                button.innerHTML = 'START';
+              }
+            }
+          });
+        });
+    </script>
 </body>
 </html>
