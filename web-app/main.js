@@ -68,14 +68,15 @@ io.sockets.on('connection',function(socket) {
 
 var startImaging = function() {
     if (jobStatus != "Stopped") {
-        child = execFile('notepad.exe', (error, stdout, stderr) => {
+        io.emit('startingCapture');
+        child = execFile('rs-pcl.exe', {cwd: 'c:/RI'}, (error, stdout, stderr) => {
             if (error) {
                 console.error('stderr', stderr);
                 throw error;
             }
             console.log('stdout ', stdout);
         });
-        setTimeout(startImaging, 5000);
+        setTimeout(startImaging, 20000);
     }
 }
 
