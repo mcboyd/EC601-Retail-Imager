@@ -23,9 +23,9 @@ pts = np.array(eval(args["coords"]), dtype = "float32")
 # the image
 warped = four_point_transform(image, pts)
  
-cv2.imwrite('Img/product.png', warped)
+cv2.imwrite('GUI/public/product.png', warped)
 
 # show the original and warped images
 #cv2.imshow("Original", image)
-cv2.imshow("Warped", warped)
-cv2.waitKey(0)
+#cv2.imshow("Warped", warped)
+#cv2.waitKey(0)
