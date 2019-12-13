@@ -190,4 +190,4 @@ https://patents.google.com/patent/US8260539
 <a name="Poster"/>
 
 ## Poster
-<img src="Img/posterec601.png">
+<img src="Img/poster.png">
