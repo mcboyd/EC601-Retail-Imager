@@ -3,7 +3,7 @@
 Team: Vivian Pazmany, Chenhui "Elvis" Zhu, Matthew Boyd  
 TA: Yicun (Ethan)
 
-*Updated: 10/30/2019*
+*Updated: 12/13/2019*
 
 #### Contents
 
@@ -187,4 +187,7 @@ https://patents.google.com/patent/US8260539
 
 6. US gov. Vehicle object recognition patent: "The platform provides an automated tool that can integrate multi-modal sensor data including two-dimensional image data, three-dimensional image data, and motion, location, or orientation data, and create a visual representation of the integrated sensor data, in a live operational environment.": https://patents.justia.com/patent/9911340
 
+<a name="Poster"/>
 
+## Poster
+<img src="Img/posterec601.png">
