@@ -22,7 +22,7 @@ TA: Yicun (Ethan)
 
 ## Product Mission
 
-Use ~~stereo cameras~~ depth camera to measure object size and determine rough object shape, then use image recognition to match visible graphics with database of known products to identify retail products in a "cluttered" box of products.
+Use depth camera to measure object size and determine rough object shape, then use image recognition to match visible graphics with database of known products to identify retail products in a "cluttered" box of products.
 
 <a name="user-stories"/>
 
@@ -58,9 +58,6 @@ Language: Python, C++, Javascript (GUI)
 
 Single Image feature extraction: SIFT
 
-~~Database: VDMS~~  
-*No longer using VDMS because of issues getting results and persisting data in their provided Docker image. Installing the VDMS software directly would never complete. Suspect it is still too new and has too many bugs for us to use.*
-
 **Image Serach: FLANN over stored list of extracted features**  
 *Using this in place of VDMS for feature matching*
 
@@ -87,9 +84,6 @@ Laptop: GUI, Image Capture, Image+Feature Storage & Search, Product Database
 
 Camera Mount: metal shelf
 
-~~Camera Case: Epic 3D print~~  
-*No longer needed - for StereoPi*
-
 <a name="technology-justifications"/>
 
 ## Technology Justifications
@@ -112,9 +106,6 @@ Comparison of SURF, SIFT, and ORB:
 
 All in all, the SIFT is the best algorithm for our project. This is because that the most important part is attached to the performance when deal with the scaled or rotated images rather than the detection speed.
 
-~~Database: VDMS~~  
-*No longer using VDMS because of issues getting results and persisting data in their provided Docker image. Installing the VDMS software directly would never complete. Suspect it is still too new and has too many bugs for us to use.*
-
 #### Feature Search: FLANN *(Replaces VDMS)*
 - Supports saving indexes to disk - allows us to continue to segment image database by object size. 
 - After indexes are built, searching is very quick (<100 ms).
@@ -122,10 +113,7 @@ All in all, the SIFT is the best algorithm for our project. This is because that
 #### Product Information Database: MySQL *(Replaces VDMS)*
 - Free and easy to use.
 - Matt has expertise with RDBMSes 
-
-~~Image Capture: Stereo Pi w/ Rasperberry Pi 3B+~~  
-*No longer using - had trouble getting stereo images to convert to point clouds quickly and efficiently. Process was taking minutes per image - we desire sub-second performance.*
-
+ 
 #### Image Capture: Intel RealSense D415 camera module *(Replaces StereoPi)*
 - Generates depth images directly.
 - Relatively inexpensive.
@@ -136,7 +124,11 @@ All in all, the SIFT is the best algorithm for our project. This is because that
 - Easy support for generating point clouds, measuring objects, etc.
 - Widely used, so lots of tutorials and community support. 
 
-#### GUI Application: TBD
+#### GUI Application: 
+Ties all systems together using:
+-NodeJS
+-Socket.IO
+-Bootstrap
 
 <a name="competitors"/>
 
