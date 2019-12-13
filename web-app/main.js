@@ -1,85 +1,92 @@
 var express = require('express');
-var mysql  = require('mysql');
 var app = express();
-const exphbs = require('express-handlebars');
-var server = require('http').Server(express);
+var http=require('http').Server(app);
+var io=require('socket.io')(http);
+var mysql=require('mysql');
+const execFile = require('child_process').execFile;
+var sqlResult = " ";
+var jobStatus = "Stopped";
+var connection = mysql.createConnection({
+    host     : 'localhost',
+    user     : 'root',
+    password : 'retail-Imager1',
+    port: '3306',
+    database: 'retail_imager',
+});
 
-var response={};
+connection.connect();
 
-var io = require('socket.io')(server);
-var Result='';
-var can = [];
+app.use(express.static('public'));
 
-app.use(express.static(__dirname + '/public'));
+app.get('/start',function(req,res) {
+    if (jobStatus == "Stopped") {
+        jobStatus = "Started";
+        startImaging();  // Runs every 90 seconds
+    } else {
+        jobStatus = "Stopped";
+    }
+    console.log(jobStatus);
+    io.emit('jobStatus', jobStatus);
+    res.sendStatus(200);
+});
 
-app.engine('html', exphbs({
-    layoutsDir: 'views',
-    defaultLayout: 'layout',
-    extname: '.html'
-}));
-app.set('view engine', 'html');
-
-//send the html file
-app.get('/', function (req, res) {
+app.get('/',function(req,res) {
     res.sendFile( __dirname + "/views/start.html" );
-})
+  });
 
-
-//after getting the id, connect the mysql db
-app.get('/process_get', function (req, res) {
-    // JSON file output
+app.get('/process_get',function(req,res) {
     response = {
         "prodid":req.query.prodid,
     };
-    //create the connection
-    var connection = mysql.createConnection({
-        host     : 'localhost',
-        user     : 'root',
-        password : '123456',
-        port: '3306',
-        database: 'retail_imager',
-    });
-    //connect thr DB
-    connection.connect();
-    //search the db
-    sql = 'SELECT * FROM product where prodid = '+response.prodid;
-    //start searching
-    connection.query(sql,function (err, result) {
-        if(err){
-            //[SELECT ERROR] -  connect ECONNREFUSED 127.0.0.1:3306
-            console.log('[SELECT ERROR] - ',err.message);
-            return;
-        }
-        console.log('--------------------------SELECT----------------------------');
-        console.log(result);
-        Result=result;
-        Result = JSON.stringify(Result);
-        can = Result.replace(/:/g,'');
-        can = (can || "").split('"');
-        console.log('------------------------------------------------------------\n\n');
-    });
-    //end the connection
-   connection.end();
-   res.render('pre', {
-    layout: false,
-    title: "Imager",
-    personInfoList: [{
-        id: (can[2] || "").split(",")[0],
-        name: can[13],
-        brand:can[9],
-        sku: can[5],
-        price: (can[20] || "").split(",")[0],
-        quan: can[17],
-        num: "product" + (can[2] || "").split(",")[0] + ".jpg"// need to redefine the name of the image according to the local address
-    }]
+    if (response.prodid != 0 && response.prodid != '0') {
+    	sql = 'SELECT * FROM product where prodid = '+response.prodid;
+	    //start searching
+	    connection.query(sql,function (err, result) {
+	        if(err){
+	            //[SELECT ERROR] -  connect ECONNREFUSED 127.0.0.1:3306
+	            console.log('[SELECT ERROR] - ',err.message);
+	            return;
+	        }
+	        console.log('--------------------------SELECT----------------------------');
+	        console.log(result);
+	        sqlResult=result[0];
+	        sqlResult = JSON.stringify(sqlResult);
+	        console.log('------------------------------------------------------------\n\n');
+	        io.emit('match', sqlResult);
+	    });
+    } else {
+    	console.log("no match");
+    	io.emit('nomatch');
+    };
+    
+    res.sendStatus(200);
 });
-})
+
+io.sockets.on('connection',function(socket) {
+    //console.log('good');
+    //socket.broadcast.emit('users',Result);
+    if (sqlResult != " ") {
+        io.emit('match', sqlResult);
+    }
+    io.emit('jobStatus', jobStatus);
+});
 
 
+var startImaging = function() {
+    if (jobStatus != "Stopped") {
+        io.emit('startingCapture');
+        child = execFile('rs-pcl.exe', {cwd: 'c:/RI'}, (error, stdout, stderr) => {
+            if (error) {
+                console.error('stderr', stderr);
+                throw error;
+            }
+            console.log('stdout ', stdout);
+        });
+        setTimeout(startImaging, 28000);
+    }
+}
 
-
-server = app.listen(8081, function () {
-     var host = server.address().address
-     var port = server.address().port
-     console.log("listening on http://%s:%s", host, port)
- })
+ 
+http.listen(8081,function(){
+    console.log('listen: 8081');
+  });

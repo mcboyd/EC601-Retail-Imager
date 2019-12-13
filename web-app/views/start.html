@@ -2,27 +2,207 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Imager</title>
-<link rel="stylesheet" href="https://cdn.bootcss.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css">
-
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retail Product Imager</title>
+<link rel="stylesheet" href="//cdn.bootcss.com/bootstrap/3.3.5/css/bootstrap.min.css">
+<link rel="stylesheet" type="text/css" href="css/ri.css" />
 </head>    
-<body style="padding: 120px;">
-
-<h1 class="text-center"> <strong>Imager</strong></h1>
-
-
 <body>
-  <form action="http://127.0.0.1:8081/process_get" method = "GET">
-      prodid:<input type="text" name="prodid">
-      <br>
-  
-      <input type="submit" value ="start">
-  
-  </form>
-  
-  
-  </body>
-<p></p>
 
+<!-- Wrap all page content here -->
+<div id="wrap">
+  
+  <!-- Fixed navbar -->
+  <div class="navbar navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <a class="navbar-brand" href="#">Retail Product Imager</a>
+        <ul class="nav navbar-nav">
+          <li>
+            <p class="navbar-btn">
+              <button type="button" id="button" class="btn btn-success">START</button>
+            </p>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Begin page content -->
+  <div class="container">
+    <div class="row">
+      <div class="col-md-4">
+        <div class="panel panel-default">
+          <div class="panel-body"><img src="http://placehold.it/350X350" class="img-responsive" id="imgCap"></div>
+          <div class="panel-footer">Captured Image</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="panel panel-default">
+          <div class="panel-body"><img src="http://placehold.it/350X350" class="img-responsive" id="imgProd"></div>
+          <div class="panel-footer">Product Image</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="panel panel-default">
+          <div class="panel-body">
+            <h4>
+              <span id="pBrand" class="small"></span><br/>
+              <span id="pName" class="text-primary"></span>
+            </h4>
+            <ul id="prodDetails" class="hidden">
+              <li><span id="pQty"></span></li>
+              <li><span id="pPrice"></span></li>
+              <li>SKU: <span id="pSku"></span></li>
+            </ul>
+          </div>
+          <div class="panel-footer">Product Details</div>
+        </div>
+        <div class="well">
+          <div class="progress" id="blips">
+            <div class="progress-bar" role="progressbar">
+              <span class="sr-only"></span>
+            </div>
+          </div>
+          <p id="status"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="footer">
+  <div class="container">
+    <p class="text-muted credit">&copy MCB</p>
+  </div>
+</div>
+<script src="//cdn.bootcss.com/jquery/1.11.3/jquery.min.js"></script>
+<script src="//cdn.bootcss.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+  <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+  <script>
+        var socket = io.connect('http://localhost:8081');
+        var jobStatus = "Stopped";
+        var ctr = 0;
+        socket.on('match',function(data){
+            console.log(data);
+            var obj = JSON.parse(data);
+            $('#pBrand').text(obj.brand);
+            $('#pName').text(obj.name);
+            $('#pQty').text(obj.quantity);
+            $('#pPrice').text('$'+obj.price);
+            $('#pSku').text(obj.SKU);
+            $("#imgCap").prop("src", "product.png?" + new Date().valueOf());
+            document.getElementById("imgProd").src = "img/"+obj.prodid+"_1.png";
+            console.log(obj.prodid+"_1.png");
+            $("#prodDetails").removeClass('hidden');
+            ctr = 19;
+            captureCountdown();
+        });
+        socket.on('jobStatus',function(data){
+            console.log(data);
+            jobStatus = data;
+            if (jobStatus == "Stopped") {
+                $("#button").html('START');
+                $("#button").removeClass("btn-danger").addClass("btn-success");
+                $("#status").addClass('hidden');
+                $("#blips").addClass('hidden');
+            } else {
+                $("#button").html('STOP');
+                $("#button").removeClass("btn-success").addClass("btn-danger");
+                $("#status").removeClass('hidden');
+                $("#blips").removeClass('hidden');
+            }
+        });
+        socket.on('startingCapture',function(){
+            console.log('startingCapture');
+            progBar();
+        });
+        socket.on('nomatch',function(){
+            console.log('no match!');
+            $('#pBrand').text('NO MATCH');
+            $('#pName').text('NO MATCH');
+            $('#pQty').text('');
+            $('#pPrice').text('');
+            $('#pSku').text('');
+            $("#imgCap").prop("src", "product.png?" + new Date().valueOf());
+            document.getElementById("imgProd").src = "http://placehold.it/350X350";
+            $("#prodDetails").removeClass('hidden');
+            ctr = 19;
+            captureCountdown();
+        });
+        function captureCountdown() {
+          // Set the date we're counting down to
+          var countDownDate = new Date().getTime() + 20000;
+
+          // Update the count down every 1 second
+          var x = setInterval(function() {
+
+            // Get today's date and time
+            var now = new Date().getTime();
+              
+            // Find the distance between now and the count down date
+            var distance = countDownDate - now;
+              
+            // Time calculations for seconds
+            var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+              
+            // Output the result in an element with id="demo"
+            if (distance > 0) {
+              document.getElementById("countDown").innerHTML = seconds + " sec ";
+            }
+              
+            // If the count down is over, write some text to the console 
+            if (distance < 1) {
+              clearInterval(x);
+              console.log("countdown timer complete");
+            }
+          }, 1000);
+        };
+        // Below adapted from https://stackoverflow.com/questions/42422099/bootstrap-progress-bar-update-status-text-at-intervals-completed-25-50-75-1
+        function progBar() {
+          var timerId = 0;
+          ctr = 0;
+          var max = 5;
+
+          timerId = setInterval(function() {
+            // interval function
+            ctr++;
+            $('#blips > .progress-bar').attr("style", "width:" + ctr * max + "%");
+            
+            if(ctr * max == 5){
+                $('#status').html("Capturing product... <span class='glyphicon glyphicon-hourglass glyphicon-spin' aria-hidden='true'>")
+              }
+             if(ctr * max == 50){  // 4 seconds have elapsed
+                $('#status').html("Characterizing product... <span class='glyphicon glyphicon-refresh glyphicon-spin' aria-hidden='true'>")
+              }
+             if(ctr * max == 75){  // 6 seconds have elapsed
+                $('#status').html("Identifying product... <span class='glyphicon glyphicon-flash glyphicon-spin' aria-hidden='true'>")
+              }
+            if(ctr * max >= 100){
+                $('#status').html("Complete! <span class='glyphicon glyphicon-ok' aria-hidden='true'></span> <span class='pull-right'>Next capture: <span id='countDown'> </span><span class='glyphicon glyphicon-time' aria-hidden='true'></span></span>")
+              }
+            // max reached?
+            if (ctr >= 4*max) {
+              clearInterval(timerId);
+            }
+
+          }, 400);  // Runs for a total of 400ms * 20 = 8 seconds
+        };
+    </script>
+
+    <script>
+        const button = document.querySelector('button');
+        button.addEventListener('click', event => {
+          $.ajax({
+            type: "GET",
+            url: "/start",
+            success: function(result) {
+              console.log("done");
+            }
+          });
+        });
+    </script>
 </body>
 </html>
