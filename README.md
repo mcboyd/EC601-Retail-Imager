@@ -75,9 +75,6 @@ Depth image metadata extraction (3D): **Intel RealSense SDK**
 
 Lighting: Matt's LED's
 
-~~Image Capture: Stereo Pi w/ Rasperberry Pi 3B+ 1.4GHz~~  
-*No longer using - had trouble getting stereo images to convert to point clouds quickly and efficiently. Process was taking minutes per image - we desire sub-second performance.*
-
 **Image Capture: Intel RealSense D415 camera module**
 
 Laptop: GUI, Image Capture, Image+Feature Storage & Search, Product Database 
