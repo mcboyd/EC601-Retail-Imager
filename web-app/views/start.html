@@ -66,9 +66,6 @@
             </div>
           </div>
           <p id="status"></p>
-          <span id="capStatus" class="hidden">
-            Next: <span id="countDown"></span> <span id="countDownGlyph" class="glyphicon glyphicon-time hidden" aria-hidden="true"></span>
-          </span>
         </div>
       </div>
     </div>
@@ -85,9 +82,9 @@
 <script src="/socket.io/socket.io.js"></script>
   <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
   <script>
-        // var socket = io.connect();
         var socket = io.connect('http://localhost:8081');
         var jobStatus = "Stopped";
+        var ctr = 0;
         socket.on('match',function(data){
             console.log(data);
             var obj = JSON.parse(data);
@@ -96,12 +93,11 @@
             $('#pQty').text(obj.quantity);
             $('#pPrice').text('$'+obj.price);
             $('#pSku').text(obj.SKU);
-            // document.getElementById("imgCap").src = "product.png";
             $("#imgCap").prop("src", "product.png?" + new Date().valueOf());
             document.getElementById("imgProd").src = "img/"+obj.prodid+"_1.png";
             console.log(obj.prodid+"_1.png");
-            $("#capComplete").removeClass('hidden');
             $("#prodDetails").removeClass('hidden');
+            ctr = 19;
             captureCountdown();
         });
         socket.on('jobStatus',function(data){
@@ -110,16 +106,31 @@
             if (jobStatus == "Stopped") {
                 $("#button").html('START');
                 $("#button").removeClass("btn-danger").addClass("btn-success");
-                //$("#capStatus").addClass('hidden');
+                $("#status").addClass('hidden');
+                $("#blips").addClass('hidden');
             } else {
                 $("#button").html('STOP');
                 $("#button").removeClass("btn-success").addClass("btn-danger");
-                //$("#capStatus").removeClass('hidden');
+                $("#status").removeClass('hidden');
+                $("#blips").removeClass('hidden');
             }
         });
         socket.on('startingCapture',function(){
             console.log('startingCapture');
             progBar();
+        });
+        socket.on('nomatch',function(){
+            console.log('no match!');
+            $('#pBrand').text('NO MATCH');
+            $('#pName').text('NO MATCH');
+            $('#pQty').text('');
+            $('#pPrice').text('');
+            $('#pSku').text('');
+            $("#imgCap").prop("src", "product.png?" + new Date().valueOf());
+            document.getElementById("imgProd").src = "http://placehold.it/350X350";
+            $("#prodDetails").removeClass('hidden');
+            ctr = 19;
+            captureCountdown();
         });
         function captureCountdown() {
           // Set the date we're counting down to
@@ -138,20 +149,21 @@
             var seconds = Math.floor((distance % (1000 * 60)) / 1000);
               
             // Output the result in an element with id="demo"
-            document.getElementById("countDown").innerHTML = seconds + " sec ";
+            if (distance > 0) {
+              document.getElementById("countDown").innerHTML = seconds + " sec ";
+            }
               
             // If the count down is over, write some text to the console 
-            if (distance < 0) {
+            if (distance < 1) {
               clearInterval(x);
               console.log("countdown timer complete");
-              //document.getElementById("countDown").innerHTML = "Capturing image...";
             }
           }, 1000);
         };
         // Below adapted from https://stackoverflow.com/questions/42422099/bootstrap-progress-bar-update-status-text-at-intervals-completed-25-50-75-1
         function progBar() {
           var timerId = 0;
-          var ctr = 0;
+          ctr = 0;
           var max = 5;
 
           timerId = setInterval(function() {
@@ -159,7 +171,6 @@
             ctr++;
             $('#blips > .progress-bar').attr("style", "width:" + ctr * max + "%");
             
-            //$('#progress').html(ctr * max + "%");
             if(ctr * max == 5){
                 $('#status').html("Capturing product... <span class='glyphicon glyphicon-hourglass glyphicon-spin' aria-hidden='true'>")
               }
@@ -169,12 +180,11 @@
              if(ctr * max == 75){  // 6 seconds have elapsed
                 $('#status').html("Identifying product... <span class='glyphicon glyphicon-flash glyphicon-spin' aria-hidden='true'>")
               }
-            if(ctr * max == 100){
+            if(ctr * max >= 100){
                 $('#status').html("Complete! <span class='glyphicon glyphicon-ok' aria-hidden='true'></span> <span class='pull-right'>Next capture: <span id='countDown'> </span><span class='glyphicon glyphicon-time' aria-hidden='true'></span></span>")
               }
             // max reached?
-            //alert(max)
-            if (ctr == 4*max) {
+            if (ctr >= 4*max) {
               clearInterval(timerId);
             }
 

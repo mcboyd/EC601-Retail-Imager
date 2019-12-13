@@ -38,21 +38,27 @@ app.get('/process_get',function(req,res) {
     response = {
         "prodid":req.query.prodid,
     };
-    sql = 'SELECT * FROM product where prodid = '+response.prodid;
-    //start searching
-    connection.query(sql,function (err, result) {
-        if(err){
-            //[SELECT ERROR] -  connect ECONNREFUSED 127.0.0.1:3306
-            console.log('[SELECT ERROR] - ',err.message);
-            return;
-        }
-        console.log('--------------------------SELECT----------------------------');
-        console.log(result);
-        sqlResult=result[0];
-        sqlResult = JSON.stringify(sqlResult);
-        console.log('------------------------------------------------------------\n\n');
-        io.emit('match', sqlResult);
-    });
+    if (response.prodid != 0 && response.prodid != '0') {
+    	sql = 'SELECT * FROM product where prodid = '+response.prodid;
+	    //start searching
+	    connection.query(sql,function (err, result) {
+	        if(err){
+	            //[SELECT ERROR] -  connect ECONNREFUSED 127.0.0.1:3306
+	            console.log('[SELECT ERROR] - ',err.message);
+	            return;
+	        }
+	        console.log('--------------------------SELECT----------------------------');
+	        console.log(result);
+	        sqlResult=result[0];
+	        sqlResult = JSON.stringify(sqlResult);
+	        console.log('------------------------------------------------------------\n\n');
+	        io.emit('match', sqlResult);
+	    });
+    } else {
+    	console.log("no match");
+    	io.emit('nomatch');
+    };
+    
     res.sendStatus(200);
 });
 
@@ -76,7 +82,7 @@ var startImaging = function() {
             }
             console.log('stdout ', stdout);
         });
-        setTimeout(startImaging, 20000);
+        setTimeout(startImaging, 28000);
     }
 }
 
