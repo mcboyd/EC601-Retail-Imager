@@ -40,7 +40,7 @@ CUSTOMER: Retail stores w/pick up/delivery services like Target, Walmart etc.
 
 ## System Design
 
-<img src="Img/SystemDesign_Updated110419.png">
+<img src="Img/systemflow.png">
 
 <a name="mvp"/>
 
@@ -187,6 +187,4 @@ https://patents.google.com/patent/US8260539
 
 6. US gov. Vehicle object recognition patent: "The platform provides an automated tool that can integrate multi-modal sensor data including two-dimensional image data, three-dimensional image data, and motion, location, or orientation data, and create a visual representation of the integrated sensor data, in a live operational environment.": https://patents.justia.com/patent/9911340
 
-<a name="flowchart"/>
 
-## Flowchart
