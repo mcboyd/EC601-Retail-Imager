@@ -16,7 +16,7 @@ TA: Yicun (Ethan)
 * [Competitors](#competitors)
 * [Competitors' User Stories](#competitors-user-stories)
 * [Patent Analysis](#patent-analysis)
-* [Flowchart](#flowchart)
+* [Poster](#poster)
 
 <a name="product-mission"/>
 
@@ -187,7 +187,7 @@ https://patents.google.com/patent/US8260539
 
 6. US gov. Vehicle object recognition patent: "The platform provides an automated tool that can integrate multi-modal sensor data including two-dimensional image data, three-dimensional image data, and motion, location, or orientation data, and create a visual representation of the integrated sensor data, in a live operational environment.": https://patents.justia.com/patent/9911340
 
-<a name="Poster"/>
+<a name="poster"/>
 
 ## Poster
 <img src="Img/poster.png">
